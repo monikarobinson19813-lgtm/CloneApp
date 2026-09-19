@@ -110,11 +110,11 @@ jobs:
                 run.status !== 'completed' ? '🟡' :
                 run.conclusion === 'success' ? '✅' :
                 run.conclusion === 'failure' ? '❌' : '⚪';
-              return `- ${icon} [#${run.run_number} — ${run.display_title}](${run.html_url}) — **${run.status}${run.conclusion ? '/' + run.conclusion : ''}** — \`${run.head_branch}`\n`;
+              return `- ${icon} [#${run.run_number} — ${run.display_title}](${run.html_url}) — **${run.status}${run.conclusion ? '/' + run.conclusion : ''}** — \`${run.head_branch}\`\n`;
             };
 
             const formatPr = (pr) =>
-              `- [PR #${pr.number} — ${pr.title}](${pr.html_url}) — \`${pr.head.ref}` → \`${pr.base.ref}`\n`;
+              `- [PR #${pr.number} — ${pr.title}](${pr.html_url}) — \`${pr.head.ref}\` → \`${pr.base.ref}\`\n`;
 
             const formatIssue = (issue) =>
               `- [#${issue.number} — ${issue.title}](${issue.html_url})\n`;
