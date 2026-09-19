@@ -35,7 +35,7 @@ class ApkImportRuntimeTest {
             val requestedMimeTypes = clickImportWithoutLeavingCloneApp(activity)
             assertPickerContract(requestedMimeTypes)
 
-            deliverPickerResult(activity, FixtureApkProvider.validApkUri())
+            deliverPickerResult(activity, DebugFixtureApkProvider.validApkUri())
 
             val text = waitForTextContaining(activity, R.id.guestArtifactText, SOURCE_APK_NAME)
             assertTrue("Imported APK name missing from diagnostics: $text", text.contains(SOURCE_APK_NAME))
@@ -83,7 +83,7 @@ class ApkImportRuntimeTest {
         val requestedMimeTypes = clickImportWithoutLeavingCloneApp(activity)
         assertPickerContract(requestedMimeTypes)
 
-        deliverPickerResult(activity, FixtureApkProvider.invalidApkUri())
+        deliverPickerResult(activity, DebugFixtureApkProvider.invalidApkUri())
 
         val text = waitForTextContaining(activity, R.id.guestArtifactText, "Import failed:")
         assertTrue(
@@ -148,14 +148,6 @@ class ApkImportRuntimeTest {
     }
 
     private fun deliverPickerResult(activity: MainActivity, uri: android.net.Uri) {
-        // The real ACTION_OPEN_DOCUMENT flow returns a URI carrying a read grant.
-        // Reproduce that security contract explicitly for the instrumentation fixture
-        // instead of relying on provider export semantics that vary across Android builds.
-        context.grantUriPermission(
-            context.packageName,
-            uri,
-            Intent.FLAG_GRANT_READ_URI_PERMISSION,
-        )
         instrumentation.runOnMainSync {
             activity.handleApkSelection(uri)
         }
