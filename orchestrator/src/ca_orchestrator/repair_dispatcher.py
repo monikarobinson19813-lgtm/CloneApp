@@ -12,10 +12,11 @@ class RepairWorkerDispatcher:
     the worker repairs the failing change instead of starting again from main.
     """
 
-    def __init__(self, github, workspaces, worker) -> None:
+    def __init__(self, github, workspaces, worker, publisher=None) -> None:
         self.github = github
         self.workspaces = workspaces
         self.worker = worker
+        self.publisher = publisher
 
     def __call__(self, issue_number: int, ci: dict[str, Any]):
         if self.worker is None:
@@ -55,4 +56,15 @@ class RepairWorkerDispatcher:
                 "repair worker failed"
                 + (f": {result.error_kind}" if result.error_kind else "")
             )
+
+        if self.publisher is None:
+            raise RuntimeError("repair publisher is not configured")
+        if not result.commit_sha:
+            raise RuntimeError("repair worker completed without a commit SHA")
+
+        self.publisher.publish(
+            workspace,
+            head_branch,
+            expected_commit_sha=result.commit_sha,
+        )
         return result
