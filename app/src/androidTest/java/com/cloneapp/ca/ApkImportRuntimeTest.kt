@@ -131,7 +131,10 @@ class ApkImportRuntimeTest {
             assertTrue("Import Guest APK button is not enabled", button.isEnabled)
             button.performClick()
         }
-        instrumentation.waitForIdleSync()
+        // Do not wait for global instrumentation idleness here. Launching an
+        // external picker transfers window focus, and API 36 can wait for a
+        // FocusEvent even when Espresso-Intents has already stubbed the result.
+        // The bounded UI-state poll below is the acceptance synchronization.
     }
 
     private fun launchCloneApp(): Activity {
@@ -158,7 +161,6 @@ class ApkImportRuntimeTest {
         var latest = ""
 
         while (SystemClock.uptimeMillis() < deadline) {
-            instrumentation.waitForIdleSync()
             instrumentation.runOnMainSync {
                 latest = activity.findViewById<TextView>(viewId)?.text?.toString().orEmpty()
             }
