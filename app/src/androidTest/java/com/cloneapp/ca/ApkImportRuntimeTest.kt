@@ -38,7 +38,7 @@ class ApkImportRuntimeTest {
             deliverPickerResult(activity, FixtureApkProvider.validApkUri())
 
             val text = waitForTextContaining(activity, R.id.guestArtifactText, SOURCE_APK_NAME)
-            assertTrue("Imported APK name missing from diagnostics", text.contains(SOURCE_APK_NAME))
+            assertTrue("Imported APK name missing from diagnostics: $text", text.contains(SOURCE_APK_NAME))
             assertTrue("SHA-256 missing from diagnostics", text.contains("sha256="))
             assertTrue("Stored path missing from diagnostics", text.contains("stored="))
 
@@ -87,7 +87,7 @@ class ApkImportRuntimeTest {
 
         val text = waitForTextContaining(activity, R.id.guestArtifactText, "Import failed:")
         assertTrue(
-            "Invalid APK error was not visible",
+            "Invalid APK error was not visible: $text",
             text.contains("Selected file is not a valid APK archive")
         )
         assertTrue(
@@ -148,6 +148,14 @@ class ApkImportRuntimeTest {
     }
 
     private fun deliverPickerResult(activity: MainActivity, uri: android.net.Uri) {
+        // The real ACTION_OPEN_DOCUMENT flow returns a URI carrying a read grant.
+        // Reproduce that security contract explicitly for the instrumentation fixture
+        // instead of relying on provider export semantics that vary across Android builds.
+        context.grantUriPermission(
+            context.packageName,
+            uri,
+            Intent.FLAG_GRANT_READ_URI_PERMISSION,
+        )
         instrumentation.runOnMainSync {
             activity.handleApkSelection(uri)
         }
