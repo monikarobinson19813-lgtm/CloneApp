@@ -19,23 +19,11 @@ class MainActivity : AppCompatActivity() {
     private var importStatus: String? = null
 
     private val apkPicker = registerForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
-        if (uri == null) {
-            importStatus = "APK import cancelled"
-            render()
-            return@registerForActivityResult
-        }
+        handleApkSelection(uri)
+    }
 
-        guestApks.importFrom(uri)
-            .onSuccess { artifact ->
-                importStatus = "Imported ${artifact.sourceDisplayName}"
-                Toast.makeText(this, "APK imported", Toast.LENGTH_SHORT).show()
-            }
-            .onFailure { error ->
-                importStatus = "Import failed: ${error.message ?: "unknown error"}"
-                Toast.makeText(this, importStatus, Toast.LENGTH_LONG).show()
-            }
-
-        render()
+    internal var apkPickerLauncher: (Array<String>) -> Unit = { mimeTypes ->
+        apkPicker.launch(mimeTypes)
     }
 
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -49,13 +37,7 @@ class MainActivity : AppCompatActivity() {
         guestArtifactText = findViewById(R.id.guestArtifactText)
 
         findViewById<Button>(R.id.importApk).setOnClickListener {
-            apkPicker.launch(
-                arrayOf(
-                    "application/vnd.android.package-archive",
-                    "application/octet-stream",
-                    "application/zip"
-                )
-            )
+            apkPickerLauncher(APK_MIME_TYPES.copyOf())
         }
 
         findViewById<Button>(R.id.createAlice).setOnClickListener {
@@ -64,6 +46,26 @@ class MainActivity : AppCompatActivity() {
         findViewById<Button>(R.id.createBob).setOnClickListener {
             createIfMissing("Bob")
         }
+        render()
+    }
+
+    internal fun handleApkSelection(uri: android.net.Uri?) {
+        if (uri == null) {
+            importStatus = "APK import cancelled"
+            render()
+            return
+        }
+
+        guestApks.importFrom(uri)
+            .onSuccess { artifact ->
+                importStatus = "Imported ${artifact.sourceDisplayName}"
+                Toast.makeText(this, "APK imported", Toast.LENGTH_SHORT).show()
+            }
+            .onFailure { error ->
+                importStatus = "Import failed: ${error.message ?: "unknown error"}"
+                Toast.makeText(this, importStatus, Toast.LENGTH_LONG).show()
+            }
+
         render()
     }
 
@@ -94,6 +96,16 @@ class MainActivity : AppCompatActivity() {
                 append("Guest runtime: NOT IMPLEMENTED")
             }
         }
+    }
+
+    internal fun configuredApkMimeTypes(): Array<String> = APK_MIME_TYPES.copyOf()
+
+    private companion object {
+        val APK_MIME_TYPES = arrayOf(
+            "application/vnd.android.package-archive",
+            "application/octet-stream",
+            "application/zip",
+        )
     }
 
     private fun renderImportedApks() {
