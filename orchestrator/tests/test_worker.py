@@ -47,7 +47,7 @@ def init_repo(root: Path) -> None:
 
 
 def make_fake_codex(path: Path, *, exit_code: int = 0) -> None:
-    script = f"""#!/usr/bin/env python3
+    script = rf"""#!/usr/bin/env python3
 import json
 import os
 import pathlib
