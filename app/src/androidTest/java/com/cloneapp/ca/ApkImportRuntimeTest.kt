@@ -10,6 +10,7 @@ import androidx.activity.result.contract.ActivityResultContracts
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.test.platform.app.InstrumentationRegistry
 import com.cloneapp.core.GuestApkRepository
+import com.cloneapp.core.GuestPackageParser
 import com.cloneapp.core.PrototypeInstanceRegistry
 import org.junit.Assert.assertArrayEquals
 import org.junit.Assert.assertEquals
@@ -18,6 +19,8 @@ import org.junit.Assert.assertTrue
 import org.junit.Test
 import org.junit.runner.RunWith
 import java.io.File
+import java.util.zip.ZipEntry
+import java.util.zip.ZipOutputStream
 
 @RunWith(AndroidJUnit4::class)
 class ApkImportRuntimeTest {
@@ -99,6 +102,60 @@ class ApkImportRuntimeTest {
             MainActivity::class.java.name,
             activity.componentName.className
         )
+    }
+
+    @Test
+    fun importedApkMetadataMatchesFixtureAndSurvivesRestart() {
+        val artifact = GuestApkRepository(context).list().single()
+        val metadata = requireNotNull(artifact.packageMetadata) {
+            "Imported artifact is missing parsed package metadata"
+        }
+
+        assertEquals("com.cloneapp.testapp", metadata.packageName)
+        assertEquals(1L, metadata.versionCode)
+        assertEquals("0.1", metadata.versionName)
+        assertEquals(
+            "com.cloneapp.testapp.MainActivity",
+            metadata.launcherActivity,
+        )
+        assertTrue(
+            "Declared MainActivity missing",
+            metadata.activities.any { it.name == "com.cloneapp.testapp.MainActivity" },
+        )
+        assertTrue(
+            "POST_NOTIFICATIONS permission missing",
+            metadata.requestedPermissions.contains("android.permission.POST_NOTIFICATIONS"),
+        )
+
+        val activity = launchCloneApp()
+        val text = waitForTextContaining(
+            activity,
+            R.id.guestArtifactText,
+            "package=com.cloneapp.testapp",
+        )
+        assertTrue(
+            "Persisted package metadata is not visible after relaunch: $text",
+            text.contains("launcher=com.cloneapp.testapp.MainActivity"),
+        )
+    }
+
+    @Test
+    fun metadataParseFailureIsExplicitAndNonCrashing() {
+        val malformed = File(context.cacheDir, "malformed-metadata-fixture.apk")
+        ZipOutputStream(malformed.outputStream()).use { zip ->
+            zip.putNextEntry(ZipEntry("not-a-manifest.txt"))
+            zip.write("not an Android package".toByteArray())
+            zip.closeEntry()
+        }
+
+        val result = GuestPackageParser(context).parse(malformed)
+
+        assertTrue("Malformed APK metadata parse must fail explicitly", result.isFailure)
+        assertTrue(
+            "Parse failure must carry a useful message",
+            result.exceptionOrNull()?.message.orEmpty().isNotBlank(),
+        )
+        malformed.delete()
     }
 
     private fun clickImportWithoutLeavingCloneApp(activity: MainActivity): Array<String> {
