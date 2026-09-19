@@ -257,6 +257,17 @@ class StateStore:
             conn.execute("COMMIT")
             return count
 
+    def failure_count(self, issue_number: int, fingerprint: str) -> int:
+        with self._connection() as conn:
+            row = conn.execute(
+                """
+                SELECT count FROM failures
+                WHERE issue_number = ? AND fingerprint = ?
+                """,
+                (issue_number, fingerprint),
+            ).fetchone()
+        return 0 if row is None else int(row["count"])
+
     def has_github_delivery(self, delivery_id: str) -> bool:
         with self._connection() as conn:
             row = conn.execute(
