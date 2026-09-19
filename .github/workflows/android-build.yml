@@ -46,3 +46,50 @@ jobs:
           name: CA-Test-App-debug
           path: testapp/build/outputs/apk/debug/testapp-debug.apk
           if-no-files-found: error
+
+  emulator-smoke:
+    name: Android 16 emulator smoke
+    needs: build
+    runs-on: ubuntu-latest
+    timeout-minutes: 35
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Download CloneApp APK
+        uses: actions/download-artifact@v4
+        with:
+          name: CloneApp-debug
+          path: ci-artifacts/cloneapp
+
+      - name: Download CA Test App APK
+        uses: actions/download-artifact@v4
+        with:
+          name: CA-Test-App-debug
+          path: ci-artifacts/testapp
+
+      - name: Enable KVM
+        run: |
+          echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' | sudo tee /etc/udev/rules.d/99-kvm4all.rules
+          sudo udevadm control --reload-rules
+          sudo udevadm trigger --name-match=kvm
+
+      - name: Run emulator smoke test
+        uses: reactivecircus/android-emulator-runner@v2
+        with:
+          api-level: 36
+          target: google_apis
+          arch: x86_64
+          profile: pixel_7
+          emulator-options: -no-window -gpu swiftshader_indirect -no-snapshot -noaudio -no-boot-anim -camera-back none
+          disable-animations: true
+          script: bash ci/emulator-smoke.sh
+
+      - name: Upload emulator evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: Emulator-Smoke-Evidence
+          path: ci-artifacts/evidence
+          if-no-files-found: warn
