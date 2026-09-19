@@ -4,6 +4,7 @@ import json
 from datetime import datetime, timezone
 
 from .models import PlannedIssue, ReconcileResult
+from .repair_policy import decide_ci_action
 from .state import StateStore
 from .workspace import WorkspaceManager
 
@@ -58,18 +59,33 @@ class Orchestrator:
                 result_state = str(ci["result_state"])
                 if result_state in {"ACTIVE", "RED", "GREEN"}:
                     state = f"CI_{result_state}"
+                    classification = str(ci["classification"])
+                    similar_failures = 0
+                    if result_state == "RED":
+                        similar_failures = self.state.failure_count(
+                            item.number,
+                            f"ci:{classification}",
+                        )
+                    decision = decide_ci_action(
+                        result_state=result_state,
+                        classification=classification,
+                        similar_failures=similar_failures,
+                    )
                     _event(
                         "ci_gate",
                         issue=item.number,
                         state=state,
                         run_id=ci["run_id"],
                         commit_sha=ci["commit_sha"],
-                        classification=ci["classification"],
+                        classification=classification,
+                        next_action=decision.action,
+                        similar_failures=similar_failures,
                     )
                     return ReconcileResult(
                         state=state,
                         issue_number=item.number,
-                        reason=str(ci["classification"]),
+                        reason=classification,
+                        action=decision.action,
                     )
 
             if item.owner_gate:

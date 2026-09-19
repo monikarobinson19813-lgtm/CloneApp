@@ -47,3 +47,4 @@ class ReconcileResult:
     issue_number: int | None = None
     workspace: str | None = None
     reason: str | None = None
+    action: str | None = None
