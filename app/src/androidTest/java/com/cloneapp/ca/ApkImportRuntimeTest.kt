@@ -1,22 +1,19 @@
 package com.cloneapp.ca
 
 import android.app.Activity
-import android.app.Instrumentation
 import android.content.Context
 import android.content.Intent
-import android.net.Uri
 import android.os.SystemClock
 import android.widget.Button
 import android.widget.TextView
-import androidx.test.espresso.intent.Intents
-import androidx.test.espresso.intent.Intents.intended
-import androidx.test.espresso.intent.Intents.intending
-import androidx.test.espresso.intent.matcher.IntentMatchers.hasAction
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.test.platform.app.InstrumentationRegistry
 import com.cloneapp.core.GuestApkRepository
 import com.cloneapp.core.PrototypeInstanceRegistry
+import org.junit.Assert.assertArrayEquals
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertNotNull
 import org.junit.Assert.assertTrue
 import org.junit.Test
 import org.junit.runner.RunWith
@@ -34,11 +31,11 @@ class ApkImportRuntimeTest {
         val registry = PrototypeInstanceRegistry(context)
         val sentinel = registry.create("com.cloneapp.registry-sentinel", "Registry Sentinel")
 
-        Intents.init()
         try {
-            stubOpenDocument(FixtureApkProvider.validApkUri())
-            clickImport(activity)
-            intended(hasAction(Intent.ACTION_OPEN_DOCUMENT))
+            val requestedMimeTypes = clickImportWithoutLeavingCloneApp(activity)
+            assertPickerContract(requestedMimeTypes)
+
+            deliverPickerResult(activity, FixtureApkProvider.validApkUri())
 
             val text = waitForTextContaining(activity, R.id.guestArtifactText, SOURCE_APK_NAME)
             assertTrue("Imported APK name missing from diagnostics", text.contains(SOURCE_APK_NAME))
@@ -62,7 +59,6 @@ class ApkImportRuntimeTest {
             )
         } finally {
             registry.delete(sentinel.id)
-            Intents.release()
         }
     }
 
@@ -84,60 +80,83 @@ class ApkImportRuntimeTest {
         clearImportedState()
         val activity = launchCloneApp()
 
-        Intents.init()
-        try {
-            stubOpenDocument(FixtureApkProvider.invalidApkUri())
-            clickImport(activity)
-            intended(hasAction(Intent.ACTION_OPEN_DOCUMENT))
+        val requestedMimeTypes = clickImportWithoutLeavingCloneApp(activity)
+        assertPickerContract(requestedMimeTypes)
 
-            val text = waitForTextContaining(activity, R.id.guestArtifactText, "Import failed:")
-            assertTrue(
-                "Invalid APK error was not visible",
-                text.contains("Selected file is not a valid APK archive")
-            )
-            assertTrue(
-                "Invalid APK must not create a guest artifact",
-                GuestApkRepository(context).list().isEmpty()
-            )
-            assertEquals(
-                "CloneApp should remain alive after invalid import",
-                MainActivity::class.java.name,
-                activity.componentName.className
-            )
-        } finally {
-            Intents.release()
-        }
-    }
+        deliverPickerResult(activity, FixtureApkProvider.invalidApkUri())
 
-    private fun stubOpenDocument(uri: Uri) {
-        val resultIntent = Intent().apply {
-            data = uri
-            addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
-        }
-        intending(hasAction(Intent.ACTION_OPEN_DOCUMENT)).respondWith(
-            Instrumentation.ActivityResult(Activity.RESULT_OK, resultIntent)
+        val text = waitForTextContaining(activity, R.id.guestArtifactText, "Import failed:")
+        assertTrue(
+            "Invalid APK error was not visible",
+            text.contains("Selected file is not a valid APK archive")
+        )
+        assertTrue(
+            "Invalid APK must not create a guest artifact",
+            GuestApkRepository(context).list().isEmpty()
+        )
+        assertEquals(
+            "CloneApp should remain alive after invalid import",
+            MainActivity::class.java.name,
+            activity.componentName.className
         )
     }
 
-    private fun clickImport(activity: Activity) {
+    private fun clickImportWithoutLeavingCloneApp(activity: MainActivity): Array<String> {
         assertEquals(
             "CloneApp must own the Import Guest APK interaction",
             MainActivity::class.java.name,
             activity.componentName.className
         )
+
+        var requestedMimeTypes: Array<String>? = null
         instrumentation.runOnMainSync {
+            activity.apkPickerLauncher = { mimeTypes ->
+                requestedMimeTypes = mimeTypes.copyOf()
+            }
             val button = activity.findViewById<Button>(R.id.importApk)
                 ?: error("Import Guest APK button not found")
             assertTrue("Import Guest APK button is not enabled", button.isEnabled)
-            button.performClick()
+            assertTrue("Import Guest APK button click was not handled", button.performClick())
         }
-        // Do not wait for global instrumentation idleness here. Launching an
-        // external picker transfers window focus, and API 36 can wait for a
-        // FocusEvent even when Espresso-Intents has already stubbed the result.
-        // The bounded UI-state poll below is the acceptance synchronization.
+
+        return assertNotNull(
+            "Import Guest APK button did not request the picker contract",
+            requestedMimeTypes,
+        ) as Array<String>
     }
 
-    private fun launchCloneApp(): Activity {
+    private fun assertPickerContract(requestedMimeTypes: Array<String>) {
+        assertArrayEquals(
+            "CloneApp picker MIME types drifted",
+            arrayOf(
+                "application/vnd.android.package-archive",
+                "application/octet-stream",
+                "application/zip",
+            ),
+            requestedMimeTypes,
+        )
+
+        val pickerIntent = ActivityResultContracts.OpenDocument()
+            .createIntent(context, requestedMimeTypes)
+
+        assertEquals(
+            "Import Guest APK must use Android's document picker contract",
+            Intent.ACTION_OPEN_DOCUMENT,
+            pickerIntent.action,
+        )
+        assertTrue(
+            "Document picker contract must require openable content",
+            pickerIntent.categories?.contains(Intent.CATEGORY_OPENABLE) == true,
+        )
+    }
+
+    private fun deliverPickerResult(activity: MainActivity, uri: android.net.Uri) {
+        instrumentation.runOnMainSync {
+            activity.handleApkSelection(uri)
+        }
+    }
+
+    private fun launchCloneApp(): MainActivity {
         val intent = context.packageManager.getLaunchIntentForPackage(context.packageName)
             ?: error("CloneApp launch intent unavailable")
         intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TASK)
@@ -149,7 +168,7 @@ class ApkImportRuntimeTest {
             MainActivity::class.java.name,
             activity.componentName.className
         )
-        return activity
+        return activity as MainActivity
     }
 
     private fun waitForTextContaining(
