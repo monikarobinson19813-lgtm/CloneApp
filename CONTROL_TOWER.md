@@ -30,7 +30,7 @@ Implemented:
 - automatic build-state monitoring.
 
 Next Engineering OS upgrade:
-- **Issue #10 — Android emulator smoke-test lane.**
+- **Issue #10 — Android emulator smoke-test lane: PUSHED, awaiting CI evidence.**
 
 ## Current state
 
@@ -58,7 +58,7 @@ Do not skip ahead merely because a later task looks interesting.
 
 ## Engineering OS support queue
 
-- Issue #10 — Add Android emulator smoke-test lane.
+- Issue #10 — Add Android emulator smoke-test lane — **PUSHED** at `51e7fcb99c5b4ace61090dc80b66642dc86bf47f`; acceptance waits for CI/emulator result.
 - Issue #11 — Automate Control Tower build-state monitoring.
 
 Issue #11 has begun operationally: an hourly build-state watch is active and should only surface meaningful completed RED/GREEN transitions, not unchanged in-progress noise.
