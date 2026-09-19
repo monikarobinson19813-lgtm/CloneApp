@@ -1,0 +1,45 @@
+name: Orchestrator Tests
+
+on:
+  push:
+    branches: [ main ]
+    paths:
+      - 'orchestrator/**'
+      - 'deploy/ca-orchestrator.service'
+      - '.github/workflows/orchestrator-tests.yml'
+  pull_request:
+    branches: [ main ]
+    paths:
+      - 'orchestrator/**'
+      - 'deploy/ca-orchestrator.service'
+      - '.github/workflows/orchestrator-tests.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: orchestrator-tests-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Python 3.12
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Run orchestrator unit tests
+        env:
+          PYTHONPATH: orchestrator/src
+        run: python -m unittest discover -s orchestrator/tests -v
+
+      - name: Compile Python sources
+        run: python -m compileall -q orchestrator/src

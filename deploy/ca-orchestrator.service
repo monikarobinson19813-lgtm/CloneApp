@@ -1,0 +1,17 @@
+[Unit]
+Description=CloneApp Autonomous Engineering Orchestrator
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+WorkingDirectory=/opt/cloneapp
+EnvironmentFile=/etc/cloneapp-orchestrator.env
+ExecStart=/opt/cloneapp/venv/bin/ca-orchestrator --plan /opt/cloneapp/orchestrator/plan.example.json
+Restart=always
+RestartSec=5
+NoNewPrivileges=true
+PrivateTmp=true
+
+[Install]
+WantedBy=multi-user.target

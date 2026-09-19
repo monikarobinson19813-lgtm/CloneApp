@@ -1,0 +1,9 @@
+{
+  "repo": "monikarobinson19813-lgtm/CloneApp",
+  "issues": [
+    {"number": 1, "dependencies": [], "owner_gate": false},
+    {"number": 2, "dependencies": [1], "owner_gate": false},
+    {"number": 3, "dependencies": [2], "owner_gate": false},
+    {"number": 4, "dependencies": [3], "owner_gate": false}
+  ]
+}
