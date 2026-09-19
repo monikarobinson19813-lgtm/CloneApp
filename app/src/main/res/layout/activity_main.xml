@@ -23,6 +23,20 @@
             android:text="CA v0.1 architecture prototype" />
 
         <Button
+            android:id="@+id/importApk"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="20dp"
+            android:text="Import Guest APK" />
+
+        <TextView
+            android:id="@+id/guestArtifactText"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="12dp"
+            android:typeface="monospace" />
+
+        <Button
             android:id="@+id/createAlice"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
