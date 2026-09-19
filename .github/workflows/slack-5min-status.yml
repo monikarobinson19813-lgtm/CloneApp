@@ -44,14 +44,19 @@ jobs:
             exit 0
           fi
 
-          RUNS="$(gh run list --repo "$GITHUB_REPOSITORY" --limit 12 --json databaseId,name,displayTitle,status,conclusion,headBranch,createdAt,url)"
+          RUNS="$(gh run list --repo "$GITHUB_REPOSITORY" --limit 20 --json databaseId,name,displayTitle,status,conclusion,headBranch,createdAt,url)"
           PRS="$(gh pr list --repo "$GITHUB_REPOSITORY" --state open --limit 20 --json number,title,headRefName,url)"
           ISSUES="$(gh issue list --repo "$GITHUB_REPOSITORY" --state open --limit 50 --json number,title,url)"
 
-          ACTIVE_COUNT="$(printf '%s' "$RUNS" | jq '[.[] | select(.status=="queued" or .status=="pending" or .status=="in_progress")] | length')"
+          # Only real engineering/test workflows may mark the system ACTIVE.
+          # Status/control workflows must never count themselves, otherwise the
+          # watchdog can permanently hide IDLE_WITH_OPEN_WORK.
+          WORK_RUNS="$(printf '%s' "$RUNS" | jq '[.[] | select(.name=="Android Build" or .name=="Orchestrator Tests")]')"
+
+          ACTIVE_COUNT="$(printf '%s' "$WORK_RUNS" | jq '[.[] | select(.status=="queued" or .status=="pending" or .status=="in_progress")] | length')"
           PR_COUNT="$(printf '%s' "$PRS" | jq 'length')"
           ISSUE_COUNT="$(printf '%s' "$ISSUES" | jq 'length')"
-          RED_COUNT="$(printf '%s' "$RUNS" | jq '[.[] | select(.status=="completed" and .conclusion=="failure")] | length')"
+          RED_COUNT="$(printf '%s' "$WORK_RUNS" | jq '[.[] | select(.status=="completed" and .conclusion=="failure")] | length')"
 
           if [ "$ACTIVE_COUNT" -gt 0 ]; then
             SYSTEM_STATE="ACTIVE_CI"
@@ -63,7 +68,7 @@ jobs:
             SYSTEM_STATE="HEALTHY_IDLE"
           fi
 
-          LATEST_RUNS="$(printf '%s' "$RUNS" | jq -r '
+          LATEST_RUNS="$(printf '%s' "$WORK_RUNS" | jq -r '
             .[0:5][] |
             (if .status != "completed" then "🟡"
              elif .conclusion == "success" then "✅"
