@@ -92,6 +92,19 @@ class StateStore:
                 );
                 CREATE INDEX IF NOT EXISTS ci_feedback_issue_updated
                     ON ci_feedback(issue_number, updated_at DESC);
+                CREATE TABLE IF NOT EXISTS action_executions (
+                    action_key TEXT PRIMARY KEY,
+                    issue_number INTEGER NOT NULL,
+                    run_id INTEGER,
+                    action TEXT NOT NULL,
+                    status TEXT NOT NULL,
+                    attempts INTEGER NOT NULL DEFAULT 1,
+                    created_at TEXT NOT NULL,
+                    updated_at TEXT NOT NULL,
+                    error_message TEXT
+                );
+                CREATE INDEX IF NOT EXISTS action_executions_issue_updated
+                    ON action_executions(issue_number, updated_at DESC);
                 """
             )
 
@@ -268,6 +281,58 @@ class StateStore:
             ).fetchone()
         return 0 if row is None else int(row["count"])
 
+    def try_start_action(
+        self,
+        *,
+        action_key: str,
+        issue_number: int,
+        run_id: int | None,
+        action: str,
+    ) -> bool:
+        """Atomically reserve one side-effecting action.
+
+        Duplicate GitHub deliveries or repeated reconciliations for the same
+        CI run/action pair return False and cannot launch the action twice.
+        """
+        now = _now()
+        with self._connection() as conn:
+            cursor = conn.execute(
+                """
+                INSERT OR IGNORE INTO action_executions(
+                    action_key, issue_number, run_id, action, status,
+                    attempts, created_at, updated_at, error_message
+                )
+                VALUES (?, ?, ?, ?, 'running', 1, ?, ?, NULL)
+                """,
+                (action_key, issue_number, run_id, action, now, now),
+            )
+        return cursor.rowcount == 1
+
+    def finish_action(
+        self,
+        action_key: str,
+        *,
+        status: str,
+        error_message: str | None = None,
+    ) -> None:
+        with self._connection() as conn:
+            conn.execute(
+                """
+                UPDATE action_executions
+                SET status = ?, updated_at = ?, error_message = ?
+                WHERE action_key = ?
+                """,
+                (status, _now(), error_message, action_key),
+            )
+
+    def action_execution(self, action_key: str) -> dict | None:
+        with self._connection() as conn:
+            row = conn.execute(
+                "SELECT * FROM action_executions WHERE action_key = ?",
+                (action_key,),
+            ).fetchone()
+        return dict(row) if row is not None else None
+
     def has_github_delivery(self, delivery_id: str) -> bool:
         with self._connection() as conn:
             row = conn.execute(
@@ -404,6 +469,16 @@ class StateStore:
                     """
                 ).fetchall()
             ]
+            action_executions = [
+                dict(row)
+                for row in conn.execute(
+                    """
+                    SELECT * FROM action_executions
+                    ORDER BY updated_at DESC
+                    LIMIT 100
+                    """
+                ).fetchall()
+            ]
         return {
             "concurrency": self.concurrency,
             "claims": claims,
@@ -411,6 +486,7 @@ class StateStore:
             "worker_runs": worker_runs,
             "github_deliveries": github_deliveries,
             "ci_feedback": ci_feedback,
+            "action_executions": action_executions,
         }
 
     def export_json(self) -> str:
