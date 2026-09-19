@@ -32,15 +32,26 @@ class FakeWorker:
         )
 
 
+class FakePublisher:
+    def __init__(self):
+        self.calls = []
+
+    def publish(self, workspace, head_branch, expected_commit_sha=None):
+        self.calls.append((str(workspace), head_branch, expected_commit_sha))
+        return expected_commit_sha or "published"
+
+
 class RepairWorkerDispatcherTests(unittest.TestCase):
     def test_dispatch_uses_failed_branch_workspace_and_repair_context(self):
         with tempfile.TemporaryDirectory() as tmp:
             workspaces = WorkspaceManager(Path(tmp) / "workspaces")
             worker = FakeWorker()
+            publisher = FakePublisher()
             dispatcher = RepairWorkerDispatcher(
                 FakeGitHub(),
                 workspaces,
                 worker,
+                publisher=publisher,
             )
             ci = {
                 "run_id": 321,
@@ -61,6 +72,10 @@ class RepairWorkerDispatcherTests(unittest.TestCase):
             metadata = Path(workspace, ".ca-workspace.json").read_text()
             self.assertIn('"kind": "repair"', metadata)
             self.assertIn('"head_branch": "ca/1-import-apk"', metadata)
+            self.assertEqual(
+                [(workspace, "ca/1-import-apk", "abc123")],
+                publisher.calls,
+            )
 
     def test_missing_failed_branch_is_rejected_before_worker(self):
         with tempfile.TemporaryDirectory() as tmp:
@@ -69,6 +84,7 @@ class RepairWorkerDispatcherTests(unittest.TestCase):
                 FakeGitHub(),
                 WorkspaceManager(Path(tmp) / "workspaces"),
                 worker,
+                publisher=FakePublisher(),
             )
 
             with self.assertRaisesRegex(RuntimeError, "failed CI head branch"):
