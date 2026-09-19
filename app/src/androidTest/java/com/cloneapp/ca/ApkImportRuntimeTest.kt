@@ -119,10 +119,11 @@ class ApkImportRuntimeTest {
             assertTrue("Import Guest APK button click was not handled", button.performClick())
         }
 
-        return assertNotNull(
+        assertNotNull(
             "Import Guest APK button did not request the picker contract",
             requestedMimeTypes,
-        ) as Array<String>
+        )
+        return requireNotNull(requestedMimeTypes)
     }
 
     private fun assertPickerContract(requestedMimeTypes: Array<String>) {
