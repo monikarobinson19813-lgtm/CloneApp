@@ -158,3 +158,50 @@ jobs:
               issue_number: statusIssue,
               body
             });
+
+            // Scheduled refreshes also provide one owner digest per 30-minute UTC slot.
+            // This is intentionally comment-based so normal GitHub notification
+            // settings can surface the digest without Naveen opening Actions.
+            if (context.eventName === 'schedule') {
+              const slot = Math.floor(Date.now() / (30 * 60 * 1000));
+              const marker = `<!-- CA_OWNER_DIGEST_SLOT:${slot} -->`;
+              const comments = await github.paginate(
+                github.rest.issues.listComments,
+                { owner, repo, issue_number: statusIssue, per_page: 100 }
+              );
+              const alreadySent = comments.some(comment =>
+                typeof comment.body === 'string' && comment.body.includes(marker)
+              );
+
+              if (!alreadySent) {
+                const latest = androidRuns[0];
+                const digest = [
+                  marker,
+                  '### CloneApp 30-minute owner digest',
+                  '',
+                  `**System:** ${systemState}`,
+                  `**Control Tower:** ${currentState}`,
+                  `**Active/queued Android runs:** ${activeRuns.length}`,
+                  `**Open PRs:** ${prsResponse.data.length}`,
+                  `**Open engineering issues:** ${engineeringIssues.length}`,
+                  latest
+                    ? `**Latest Android Build:** #${latest.run_number} — ${latest.status}${latest.conclusion ? '/' + latest.conclusion : ''} — ${latest.display_title}`
+                    : '**Latest Android Build:** none',
+                  '',
+                  prsResponse.data.length
+                    ? '**Active PRs:** ' + prsResponse.data.slice(0, 5).map(pr => `#${pr.number} ${pr.title}`).join(' | ')
+                    : '**Active PRs:** none',
+                  '',
+                  systemState === 'IDLE_WITH_OPEN_WORK'
+                    ? '⚠️ Eligible/open work exists while no Android build or PR is active; Control Tower/orchestrator should reconcile this.'
+                    : 'No owner action is required unless an explicit decision gate is raised.'
+                ].join('\n');
+
+                await github.rest.issues.createComment({
+                  owner,
+                  repo,
+                  issue_number: statusIssue,
+                  body: digest
+                });
+              }
+            }
