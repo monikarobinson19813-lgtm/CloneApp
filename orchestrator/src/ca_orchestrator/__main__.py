@@ -13,6 +13,7 @@ from .config import load_settings
 from .engine import Orchestrator
 from .github_client import GitHubClient
 from .repair_dispatcher import RepairWorkerDispatcher
+from .repair_publisher import GitRepairPublisher
 from .state import StateStore
 from .webhook import create_webhook_server
 from .worker import CodexWorkerAdapter
@@ -47,6 +48,7 @@ def build_orchestrator(plan_path: str):
         github,
         workspaces,
         worker,
+        publisher=GitRepairPublisher(),
     )
 
     action_executor = CiActionExecutor(
