@@ -6,19 +6,20 @@ import android.content.Context
 import android.content.Intent
 import android.net.Uri
 import android.os.SystemClock
-import android.widget.Button
 import android.widget.TextView
+import androidx.test.espresso.Espresso.onView
+import androidx.test.espresso.action.ViewActions.click
 import androidx.test.espresso.intent.Intents
 import androidx.test.espresso.intent.Intents.intended
 import androidx.test.espresso.intent.Intents.intending
 import androidx.test.espresso.intent.matcher.IntentMatchers.hasAction
+import androidx.test.espresso.matcher.ViewMatchers.withId
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.test.platform.app.InstrumentationRegistry
 import com.cloneapp.core.GuestApkRepository
 import com.cloneapp.core.PrototypeInstanceRegistry
 import org.hamcrest.Matchers.allOf
 import org.junit.Assert.assertEquals
-import org.junit.Assert.assertNotNull
 import org.junit.Assert.assertTrue
 import org.junit.Test
 import org.junit.runner.RunWith
@@ -122,12 +123,12 @@ class ApkImportRuntimeTest {
     }
 
     private fun clickImport(activity: Activity) {
-        val importButton = activity.findViewById<Button>(R.id.importApk)
-        assertNotNull("Import Guest APK button not found", importButton)
-        instrumentation.runOnMainSync {
-            importButton.performClick()
-        }
-        instrumentation.waitForIdleSync()
+        assertEquals(
+            "CloneApp must own the Import Guest APK interaction",
+            MainActivity::class.java.name,
+            activity.componentName.className
+        )
+        onView(withId(R.id.importApk)).perform(click())
     }
 
     private fun launchCloneApp(): Activity {
