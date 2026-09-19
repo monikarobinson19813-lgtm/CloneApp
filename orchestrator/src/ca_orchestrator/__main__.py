@@ -9,11 +9,19 @@ from .config import load_settings
 from .engine import Orchestrator
 from .github_client import GitHubClient
 from .state import StateStore
+from .worker import CodexWorkerAdapter
 from .workspace import WorkspaceManager
 
 
 def build_orchestrator(plan_path: str):
     settings = load_settings(plan_path)
+
+    if settings.enable_codex_worker:
+        if settings.workspace_mode != "worktree":
+            raise RuntimeError("CA_ENABLE_CODEX_WORKER=1 requires CA_WORKSPACE_MODE=worktree")
+        if settings.repo_path is None:
+            raise RuntimeError("CA_ENABLE_CODEX_WORKER=1 requires CA_REPO_PATH")
+
     github = GitHubClient(settings.repo, settings.token)
     state = StateStore(settings.state_db, concurrency=settings.concurrency)
     workspaces = WorkspaceManager(
@@ -21,13 +29,27 @@ def build_orchestrator(plan_path: str):
         mode=settings.workspace_mode,
         repo_path=settings.repo_path,
     )
-    return settings, state, Orchestrator(github, state, workspaces, settings.plan)
+    worker = None
+    if settings.enable_codex_worker:
+        worker = CodexWorkerAdapter(
+            state,
+            codex_binary=settings.codex_binary,
+            timeout_seconds=settings.codex_timeout_seconds,
+        )
+
+    return settings, state, Orchestrator(
+        github,
+        state,
+        workspaces,
+        settings.plan,
+        worker=worker,
+    )
 
 
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description="CloneApp persistent engineering orchestrator")
     parser.add_argument("--plan", default="orchestrator/plan.example.json")
-    parser.add_argument("--once", action="store_true", help="Run one reconciliation tick and exit")
+    parser.add_argument("--once", action="store_true", help="Run one reconciliation/dispatch tick and exit")
     parser.add_argument("--status", action="store_true", help="Print persisted state as JSON")
     parser.add_argument("--release", type=int, metavar="ISSUE", help="Release one claimed issue")
     args = parser.parse_args(argv)
@@ -44,14 +66,14 @@ def main(argv: list[str] | None = None) -> int:
         return 0 if released else 1
 
     if args.once:
-        result = orchestrator.reconcile_once()
+        result = orchestrator.reconcile_and_dispatch_once()
         print(json.dumps(result.__dict__, sort_keys=True))
         return 0
 
     backoff = settings.poll_seconds
     while True:
         try:
-            orchestrator.reconcile_once()
+            orchestrator.reconcile_and_dispatch_once()
             backoff = settings.poll_seconds
             time.sleep(settings.poll_seconds)
         except KeyboardInterrupt:

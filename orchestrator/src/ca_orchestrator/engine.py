@@ -18,11 +18,19 @@ def _event(name: str, **fields) -> None:
 
 
 class Orchestrator:
-    def __init__(self, github, state: StateStore, workspaces: WorkspaceManager, plan: tuple[PlannedIssue, ...]):
+    def __init__(
+        self,
+        github,
+        state: StateStore,
+        workspaces: WorkspaceManager,
+        plan: tuple[PlannedIssue, ...],
+        worker=None,
+    ):
         self.github = github
         self.state = state
         self.workspaces = workspaces
         self.plan = plan
+        self.worker = worker
 
     def _dependencies_closed(self, item: PlannedIssue) -> bool:
         return all(self.github.issue(dep).state == "closed" for dep in item.dependencies)
@@ -63,3 +71,46 @@ class Orchestrator:
 
         _event("idle_no_eligible_work")
         return ReconcileResult(state="IDLE")
+
+    def reconcile_and_dispatch_once(self) -> ReconcileResult:
+        result = self.reconcile_once()
+        if (
+            self.worker is None
+            or result.issue_number is None
+            or result.workspace is None
+            or result.state not in {"CLAIMED", "ACTIVE_CLAIM"}
+        ):
+            return result
+
+        latest = self.state.latest_worker_run(result.issue_number)
+        if latest is not None:
+            _event(
+                "worker_already_recorded",
+                issue=result.issue_number,
+                worker_status=latest["status"],
+                run_id=latest["run_id"],
+            )
+            return ReconcileResult(
+                state=f"WORKER_{str(latest['status']).upper()}",
+                issue_number=result.issue_number,
+                workspace=result.workspace,
+                reason=latest.get("error_kind"),
+            )
+
+        issue = self.github.issue(result.issue_number)
+        _event("worker_dispatch", issue=issue.number, workspace=result.workspace)
+        worker_result = self.worker.run(issue, result.workspace)
+        _event(
+            "worker_finished",
+            issue=issue.number,
+            status=worker_result.status,
+            run_id=worker_result.run_id,
+            commit_sha=worker_result.commit_sha,
+            error_kind=worker_result.error_kind,
+        )
+        return ReconcileResult(
+            state=f"WORKER_{worker_result.status.upper()}",
+            issue_number=issue.number,
+            workspace=result.workspace,
+            reason=worker_result.error_kind,
+        )

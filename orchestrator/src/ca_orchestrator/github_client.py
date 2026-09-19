@@ -47,4 +47,5 @@ class GitHubClient:
             number=int(data["number"]),
             title=str(data.get("title", "")),
             state=state,
+            body=str(data.get("body") or ""),
         )

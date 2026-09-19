@@ -19,6 +19,9 @@ class Settings:
     repo_path: Path | None
     concurrency: int
     plan: tuple[PlannedIssue, ...]
+    enable_codex_worker: bool
+    codex_binary: str
+    codex_timeout_seconds: int
 
 
 def load_settings(plan_path: str | Path) -> Settings:
@@ -51,4 +54,9 @@ def load_settings(plan_path: str | Path) -> Settings:
         repo_path=Path(repo_path_raw) if repo_path_raw else None,
         concurrency=max(1, int(os.environ.get("CA_CONCURRENCY", "1"))),
         plan=plan,
+        enable_codex_worker=os.environ.get("CA_ENABLE_CODEX_WORKER", "0") == "1",
+        codex_binary=os.environ.get("CA_CODEX_BINARY", "codex"),
+        codex_timeout_seconds=max(
+            60, int(os.environ.get("CA_CODEX_TIMEOUT_SECONDS", "1800"))
+        ),
     )
