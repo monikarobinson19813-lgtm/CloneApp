@@ -7,12 +7,14 @@ Any coding/review agent operating in this repository must follow this order:
 3. Read the single assigned GitHub Issue.
 4. Read relevant product/architecture/test documents.
 5. Work only within that issue.
-6. Push one bounded logical change.
-7. Stop.
+6. Push one bounded logical change to the issue-specific branch.
+7. Open/update the issue PR; do not push routine autonomous work directly to `main`.
+8. Stop.
 
 ## Hard rules
 
 - Do not choose your own next feature.
+- Do not bypass the issue branch/PR gate for routine autonomous work.
 - Do not expand scope silently.
 - Do not call compile success "feature GREEN".
 - Do not bypass Play Integrity, anti-tamper controls or `REQUIRE_SECURE_ENV`.
