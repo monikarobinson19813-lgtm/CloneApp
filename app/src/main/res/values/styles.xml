@@ -1,0 +1,3 @@
+<resources>
+    <style name="Theme.CloneApp" parent="Theme.AppCompat.DayNight.NoActionBar" />
+</resources>
