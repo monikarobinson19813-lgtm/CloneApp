@@ -142,6 +142,7 @@ class OrchestratorTests(unittest.TestCase):
 
             self.assertEqual("CI_ACTIVE", result.state)
             self.assertEqual(1, result.issue_number)
+            self.assertEqual("WAIT_FOR_CI", result.action)
             self.assertEqual([], state.active_claims())
 
     def test_red_ci_is_persisted_as_gate_until_repair_policy_handles_it(self):
@@ -172,6 +173,7 @@ class OrchestratorTests(unittest.TestCase):
 
             self.assertEqual("CI_RED", result.state)
             self.assertEqual("EMULATOR", result.reason)
+            self.assertEqual("RUNTIME_CLASSIFICATION_REQUIRED", result.action)
             self.assertEqual([], state.active_claims())
 
 
