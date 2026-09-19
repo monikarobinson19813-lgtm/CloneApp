@@ -6,6 +6,8 @@ import android.widget.TextView
 import android.widget.Toast
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.appcompat.app.AppCompatActivity
+import java.util.concurrent.ExecutorService
+import java.util.concurrent.Executors
 import com.cloneapp.core.GuestApkRepository
 import com.cloneapp.core.InstanceStorage
 import com.cloneapp.core.PrototypeInstanceRegistry
@@ -17,6 +19,7 @@ class MainActivity : AppCompatActivity() {
     private lateinit var instancesText: TextView
     private lateinit var guestArtifactText: TextView
     private var importStatus: String? = null
+    private val importExecutor: ExecutorService = Executors.newSingleThreadExecutor()
 
     private val apkPicker = registerForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
         handleApkSelection(uri)
@@ -56,17 +59,30 @@ class MainActivity : AppCompatActivity() {
             return
         }
 
-        guestApks.importFrom(uri)
-            .onSuccess { artifact ->
-                importStatus = "Imported ${artifact.sourceDisplayName}"
-                Toast.makeText(this, "APK imported", Toast.LENGTH_SHORT).show()
-            }
-            .onFailure { error ->
-                importStatus = "Import failed: ${error.message ?: "unknown error"}"
-                Toast.makeText(this, importStatus, Toast.LENGTH_LONG).show()
-            }
-
+        importStatus = "Importing APK…"
         render()
+
+        importExecutor.execute {
+            val result = guestApks.importFrom(uri)
+            runOnUiThread {
+                result
+                    .onSuccess { artifact ->
+                        importStatus = "Imported ${artifact.sourceDisplayName}"
+                        Toast.makeText(this, "APK imported", Toast.LENGTH_SHORT).show()
+                    }
+                    .onFailure { error ->
+                        importStatus = "Import failed: ${error.message ?: "unknown error"}"
+                        Toast.makeText(this, importStatus, Toast.LENGTH_LONG).show()
+                    }
+
+                render()
+            }
+        }
+    }
+
+    override fun onDestroy() {
+        importExecutor.shutdownNow()
+        super.onDestroy()
     }
 
     private fun createIfMissing(name: String) {
