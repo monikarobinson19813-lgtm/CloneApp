@@ -6,6 +6,8 @@ This repository is the first implementation scaffold for CloneApp.
 
 Use these files to answer "what are we building?", "where are we now?" and "what is next?":
 
+- [PRODUCT_VISION.md](PRODUCT_VISION.md) — what CA should ultimately become; competitive aspiration and product promise.
+- [ASPIRATION_MATRIX.md](ASPIRATION_MATRIX.md) — Multiple Accounts / Parallel Space / peer feature baseline vs CA target.
 - [ROADMAP.md](ROADMAP.md) — milestone path from v0.1 to v1.0 and current engineering focus.
 - [FEATURES.md](FEATURES.md) — complete feature inventory with live status.
 - [DECISIONS.md](DECISIONS.md) — architecture/product decisions and why they were made.
