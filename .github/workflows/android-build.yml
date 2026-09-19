@@ -40,14 +40,21 @@ jobs:
       - name: Run CA Core unit tests
         run: gradle --no-daemon :ca-core:testDebugUnitTest
 
-      - name: Build debug APKs
-        run: gradle --no-daemon :app:assembleDebug :testapp:assembleDebug
+      - name: Build debug APKs and instrumentation APK
+        run: gradle --no-daemon :app:assembleDebug :app:assembleDebugAndroidTest :testapp:assembleDebug
 
       - name: Upload CloneApp APK
         uses: actions/upload-artifact@v4
         with:
           name: CloneApp-debug
           path: app/build/outputs/apk/debug/app-debug.apk
+          if-no-files-found: error
+
+      - name: Upload CloneApp instrumentation APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: CloneApp-androidTest
+          path: app/build/outputs/apk/androidTest/debug/app-debug-androidTest.apk
           if-no-files-found: error
 
       - name: Upload CA Test App APK
@@ -72,6 +79,12 @@ jobs:
         with:
           name: CloneApp-debug
           path: ci-artifacts/cloneapp
+
+      - name: Download CloneApp instrumentation APK
+        uses: actions/download-artifact@v4
+        with:
+          name: CloneApp-androidTest
+          path: ci-artifacts/cloneapp-test
 
       - name: Download CA Test App APK
         uses: actions/download-artifact@v4
