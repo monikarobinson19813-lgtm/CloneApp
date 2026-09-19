@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import json
 import urllib.error
+import urllib.parse
 import urllib.request
 
 from .models import IssueSnapshot
@@ -49,3 +50,19 @@ class GitHubClient:
             state=state,
             body=str(data.get("body") or ""),
         )
+
+    def workflow_jobs(self, run_id: int) -> list[dict]:
+        jobs: list[dict] = []
+        page = 1
+        while True:
+            query = urllib.parse.urlencode({"per_page": 100, "page": page})
+            data = self._get_json(
+                f"/repos/{self.repo}/actions/runs/{run_id}/jobs?{query}"
+            )
+            batch = data.get("jobs") or []
+            if not isinstance(batch, list):
+                raise GitHubError(f"Unexpected jobs payload for workflow run {run_id}")
+            jobs.extend(job for job in batch if isinstance(job, dict))
+            if len(batch) < 100:
+                return jobs
+            page += 1
