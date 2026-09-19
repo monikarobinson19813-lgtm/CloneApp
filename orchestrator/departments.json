@@ -1,0 +1,116 @@
+{
+  "namespace": "cloneapp",
+  "default_exchange_budget": 3,
+  "departments": [
+    {
+      "id": "control",
+      "name": "Control Tower",
+      "channel": "cloneapp-control-room",
+      "agent_role": "engineering_manager",
+      "preferred_provider": "openai",
+      "dynamic_channels": true,
+      "concurrency_limit": 1,
+      "escalation_target": "owner"
+    },
+    {
+      "id": "product",
+      "name": "Product",
+      "channel": "cloneapp-product",
+      "agent_role": "product_agent",
+      "preferred_provider": "openai",
+      "dynamic_channels": true,
+      "concurrency_limit": 2,
+      "escalation_target": "control"
+    },
+    {
+      "id": "engine",
+      "name": "Core Engine",
+      "channel": "cloneapp-engine",
+      "agent_role": "engine_worker",
+      "preferred_provider": "codex",
+      "dynamic_channels": true,
+      "concurrency_limit": 2,
+      "escalation_target": "architecture"
+    },
+    {
+      "id": "ui",
+      "name": "UI/UX",
+      "channel": "cloneapp-ui",
+      "agent_role": "ui_worker",
+      "preferred_provider": "codex",
+      "dynamic_channels": true,
+      "concurrency_limit": 1,
+      "escalation_target": "product"
+    },
+    {
+      "id": "qa",
+      "name": "QA",
+      "channel": "cloneapp-qa",
+      "agent_role": "qa_agent",
+      "preferred_provider": "openai",
+      "dynamic_channels": true,
+      "concurrency_limit": 2,
+      "escalation_target": "control"
+    },
+    {
+      "id": "architecture",
+      "name": "Architecture",
+      "channel": "cloneapp-architecture",
+      "agent_role": "architecture_agent",
+      "preferred_provider": "openai",
+      "dynamic_channels": true,
+      "concurrency_limit": 1,
+      "escalation_target": "control"
+    },
+    {
+      "id": "security",
+      "name": "Security",
+      "channel": "cloneapp-security",
+      "agent_role": "security_agent",
+      "preferred_provider": "openai",
+      "dynamic_channels": true,
+      "concurrency_limit": 1,
+      "escalation_target": "control"
+    },
+    {
+      "id": "compatibility",
+      "name": "Compatibility",
+      "channel": "cloneapp-compatibility",
+      "agent_role": "compatibility_agent",
+      "preferred_provider": "openai",
+      "dynamic_channels": true,
+      "concurrency_limit": 2,
+      "escalation_target": "control"
+    },
+    {
+      "id": "autonomy",
+      "name": "Engineering Automation",
+      "channel": "cloneapp-autonomy",
+      "agent_role": "devops_agent",
+      "preferred_provider": "codex",
+      "dynamic_channels": true,
+      "concurrency_limit": 2,
+      "escalation_target": "architecture"
+    },
+    {
+      "id": "research",
+      "name": "Research",
+      "channel": "cloneapp-research",
+      "agent_role": "research_agent",
+      "preferred_provider": "openai",
+      "dynamic_channels": true,
+      "concurrency_limit": 3,
+      "escalation_target": "architecture"
+    },
+    {
+      "id": "release",
+      "name": "Release",
+      "channel": "cloneapp-release",
+      "agent_role": "release_agent",
+      "preferred_provider": "openai",
+      "dynamic_channels": true,
+      "concurrency_limit": 1,
+      "escalation_target": "control"
+    }
+  ]
+}
