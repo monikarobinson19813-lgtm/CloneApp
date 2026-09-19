@@ -24,6 +24,7 @@ Any coding/review agent operating in this repository must follow this order:
 
 ## Source of truth
 
+- Knowledge-capture/classification policy: `KNOWLEDGE_CAPTURE.md`
 - Product destination: `PRODUCT_VISION.md`
 - Competitive target: `ASPIRATION_MATRIX.md`
 - Current/next/blockers: `CONTROL_TOWER.md`

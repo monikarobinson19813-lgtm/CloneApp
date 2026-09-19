@@ -202,6 +202,19 @@ Initial concurrency: 1.
 - dispatcher immediately starts next eligible issue;
 - no human "continue" required.
 
+## A4.5 — Extract Software Engineering Power House (PH)
+
+After the first closed-loop autonomous flow is proven on CloneApp:
+
+- create PH as a separate reusable product/control-plane repository;
+- move generic orchestration, state, CI-event handling, repair policy, worker/provider adapters, acceptance/progression framework, Slack integration and bootstrap templates into PH;
+- replace CloneApp-specific constants/namespaces with project configuration;
+- keep CloneApp product vision, roadmap, architecture, feature requirements, test/compatibility evidence and app code in the CloneApp repository;
+- reconnect CloneApp as PH's first customer/project;
+- prove PH can bootstrap and operate a second independent product without rebuilding the Engineering OS.
+
+Do not perform this extraction before Issue #16 proves the full sequential closed loop. Portability is a milestone, not incidental refactoring.
+
 ## A5 — Controlled concurrency
 
 Increase from 1 to 2-3 simultaneous workers only for independent tasks.

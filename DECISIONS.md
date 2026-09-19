@@ -276,3 +276,68 @@ Requires CA Native/Profile engine or a special supported mode.
 Unsupported / unsuitable for CA.
 
 Compatibility must be based on tested evidence, not assumptions.
+
+
+---
+
+## ADR-014 — Extract Software Engineering Power House as a reusable product after closed-loop proof
+
+**Status:** Accepted direction  
+**Date:** 2026-09-19
+
+### Decision
+
+The autonomous engineering system being developed inside CloneApp will become a separate reusable product/control plane named **Software Engineering Power House (PH)** after the first end-to-end autonomous engineering loop is proven reliably on CloneApp.
+
+CloneApp is PH's first proving ground and first customer. It is not intended to remain PH's permanent implementation host.
+
+### Timing
+
+Do **not** extract PH before Engineering OS Issue #16 proves the closed loop:
+
+```text
+eligible issue
+  -> bounded worker
+  -> branch / PR
+  -> CI / QA
+  -> RED repair or GREEN acceptance
+  -> issue progression
+  -> next dependency-safe issue
+```
+
+After that proof, create a dedicated PH extraction milestone.
+
+### Boundary
+
+Move reusable capabilities to PH, including:
+- orchestration/state/dependency engine;
+- GitHub event and CI feedback handling;
+- repair/action execution policy;
+- worker/provider adapters;
+- Slack/control-room integration;
+- acceptance/progression framework;
+- reusable project bootstrap/templates.
+
+Keep project-specific material in each product repository, including:
+- product vision and requirements;
+- project roadmap/features;
+- application architecture;
+- compatibility policy/evidence;
+- project-specific acceptance tests;
+- project-specific owner gates and configuration.
+
+### Reason
+
+Extracting too early would create migration work while the control loop is still changing. Extracting too late would hard-code CloneApp assumptions into a system intended to accelerate many future products.
+
+### Future operating model
+
+```text
+Software Engineering Power House
+        |
+        +--> CloneApp
+        +--> Future Product B
+        +--> Future Product C
+```
+
+Each product supplies configuration and product-specific rules; PH supplies the reusable engineering organization and execution engine.
