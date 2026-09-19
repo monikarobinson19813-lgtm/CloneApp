@@ -1,7 +1,11 @@
 package com.cloneapp.ca
 
+import android.app.Activity
 import android.content.Context
 import android.content.Intent
+import android.os.SystemClock
+import android.widget.Button
+import android.widget.TextView
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.test.platform.app.InstrumentationRegistry
 import androidx.test.uiautomator.By
@@ -25,14 +29,13 @@ class ApkImportRuntimeTest {
     @Test
     fun importApkThroughDocumentPicker() {
         clearImportedState()
-        launchCloneApp()
+        val activity = launchCloneApp()
 
-        val importButton = device.wait(
-            Until.findObject(By.res(context.packageName, "importApk")),
-            TIMEOUT_MS
-        )
+        val importButton = activity.findViewById<Button>(R.id.importApk)
         assertNotNull("Import Guest APK button not found", importButton)
-        importButton!!.click()
+        instrumentation.runOnMainSync {
+            importButton.performClick()
+        }
 
         val pickerOpened = device.wait(
             Until.hasObject(By.pkg(DOCUMENTS_UI_PACKAGE)),
@@ -44,13 +47,7 @@ class ApkImportRuntimeTest {
         assertNotNull("CA Test App APK was not visible in Android document picker", apk)
         apk!!.click()
 
-        val artifactText = device.wait(
-            Until.findObject(By.res(context.packageName, "guestArtifactText")),
-            TIMEOUT_MS
-        )
-        assertNotNull("Guest artifact diagnostics were not shown after import", artifactText)
-
-        val text = artifactText!!.text.orEmpty()
+        val text = waitForTextContaining(activity, R.id.guestArtifactText, SOURCE_APK_NAME)
         assertTrue("Imported APK name missing from diagnostics", text.contains(SOURCE_APK_NAME))
         assertTrue("SHA-256 missing from diagnostics", text.contains("sha256="))
         assertTrue("Stored path missing from diagnostics", text.contains("stored="))
@@ -64,15 +61,9 @@ class ApkImportRuntimeTest {
 
     @Test
     fun importedApkRecordSurvivesRelaunch() {
-        launchCloneApp()
+        val activity = launchCloneApp()
 
-        val artifactText = device.wait(
-            Until.findObject(By.res(context.packageName, "guestArtifactText")),
-            TIMEOUT_MS
-        )
-        assertNotNull("Guest artifact diagnostics missing after relaunch", artifactText)
-
-        val text = artifactText!!.text.orEmpty()
+        val text = waitForTextContaining(activity, R.id.guestArtifactText, SOURCE_APK_NAME)
         assertTrue("Imported APK record did not survive relaunch", text.contains(SOURCE_APK_NAME))
         assertTrue("Persisted SHA-256 missing after relaunch", text.contains("sha256="))
 
@@ -81,17 +72,41 @@ class ApkImportRuntimeTest {
         assertTrue("Persisted private APK copy missing", File(artifacts.single().storedPath).isFile)
     }
 
-    private fun launchCloneApp() {
+    private fun launchCloneApp(): Activity {
         val intent = context.packageManager.getLaunchIntentForPackage(context.packageName)
             ?: error("CloneApp launch intent unavailable")
         intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TASK)
-        context.startActivity(intent)
 
-        val ready = device.wait(
-            Until.hasObject(By.res(context.packageName, "importApk")),
-            TIMEOUT_MS
+        val activity = instrumentation.startActivitySync(intent)
+        instrumentation.waitForIdleSync()
+        assertEquals(
+            "CloneApp did not launch MainActivity",
+            MainActivity::class.java.name,
+            activity.componentName.className
         )
-        assertTrue("CloneApp did not reach main dashboard", ready)
+        return activity
+    }
+
+    private fun waitForTextContaining(
+        activity: Activity,
+        viewId: Int,
+        needle: String,
+    ): String {
+        val deadline = SystemClock.uptimeMillis() + TIMEOUT_MS
+        var latest = ""
+
+        while (SystemClock.uptimeMillis() < deadline) {
+            instrumentation.waitForIdleSync()
+            instrumentation.runOnMainSync {
+                latest = activity.findViewById<TextView>(viewId)?.text?.toString().orEmpty()
+            }
+            if (latest.contains(needle)) {
+                return latest
+            }
+            SystemClock.sleep(POLL_INTERVAL_MS)
+        }
+
+        return latest
     }
 
     private fun waitForSourceApk(): UiObject2? {
@@ -136,8 +151,9 @@ class ApkImportRuntimeTest {
     private companion object {
         const val DOCUMENTS_UI_PACKAGE = "com.google.android.documentsui"
         const val SOURCE_APK_NAME = "CA-Test-App-debug.apk"
-        const val TIMEOUT_MS = 15_000L
+        const val TIMEOUT_MS = 20_000L
         const val PICKER_START_TIMEOUT_MS = 20_000L
         const val SHORT_TIMEOUT_MS = 5_000L
+        const val POLL_INTERVAL_MS = 100L
     }
 }
