@@ -1,17 +1,16 @@
 package com.cloneapp.ca
 
 import android.app.Activity
+import android.app.Instrumentation
 import android.content.Context
 import android.content.Intent
+import android.content.IntentFilter
+import android.net.Uri
 import android.os.SystemClock
 import android.widget.Button
 import android.widget.TextView
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.test.platform.app.InstrumentationRegistry
-import androidx.test.uiautomator.By
-import androidx.test.uiautomator.UiDevice
-import androidx.test.uiautomator.UiObject2
-import androidx.test.uiautomator.Until
 import com.cloneapp.core.GuestApkRepository
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNotNull
@@ -24,39 +23,39 @@ import java.io.File
 class ApkImportRuntimeTest {
     private val instrumentation = InstrumentationRegistry.getInstrumentation()
     private val context = instrumentation.targetContext
-    private val device = UiDevice.getInstance(instrumentation)
 
     @Test
-    fun importApkThroughDocumentPicker() {
+    fun importApkThroughDocumentPickerContract() {
         clearImportedState()
         val activity = launchCloneApp()
+        val monitor = interceptOpenDocument(FixtureApkProvider.validApkUri())
 
-        val importButton = activity.findViewById<Button>(R.id.importApk)
-        assertNotNull("Import Guest APK button not found", importButton)
-        instrumentation.runOnMainSync {
-            importButton.performClick()
+        try {
+            clickImport(activity)
+            assertTrue(
+                "Import button did not launch ACTION_OPEN_DOCUMENT",
+                waitForMonitorHit(monitor)
+            )
+
+            val text = waitForTextContaining(activity, R.id.guestArtifactText, SOURCE_APK_NAME)
+            assertTrue("Imported APK name missing from diagnostics", text.contains(SOURCE_APK_NAME))
+            assertTrue("SHA-256 missing from diagnostics", text.contains("sha256="))
+            assertTrue("Stored path missing from diagnostics", text.contains("stored="))
+
+            val artifacts = GuestApkRepository(context).list()
+            assertEquals("Exactly one imported artifact expected", 1, artifacts.size)
+            val artifact = artifacts.single()
+            assertEquals(SOURCE_APK_NAME, artifact.sourceDisplayName)
+            assertTrue("Imported APK private copy missing", File(artifact.storedPath).isFile)
+            assertEquals("Imported APK checksum must be SHA-256", 64, artifact.sha256.length)
+            assertEquals(
+                "Stored APK must be named by its deterministic checksum",
+                "${artifact.sha256}.apk",
+                File(artifact.storedPath).name
+            )
+        } finally {
+            instrumentation.removeMonitor(monitor)
         }
-
-        val pickerOpened = device.wait(
-            Until.hasObject(By.pkg(DOCUMENTS_UI_PACKAGE)),
-            PICKER_START_TIMEOUT_MS
-        )
-        assertTrue("Android document picker did not open", pickerOpened)
-
-        val apk = waitForSourceApk()
-        assertNotNull("CA Test App APK was not visible in Android document picker", apk)
-        apk!!.click()
-
-        val text = waitForTextContaining(activity, R.id.guestArtifactText, SOURCE_APK_NAME)
-        assertTrue("Imported APK name missing from diagnostics", text.contains(SOURCE_APK_NAME))
-        assertTrue("SHA-256 missing from diagnostics", text.contains("sha256="))
-        assertTrue("Stored path missing from diagnostics", text.contains("stored="))
-
-        val artifacts = GuestApkRepository(context).list()
-        assertEquals("Exactly one imported artifact expected", 1, artifacts.size)
-        assertEquals(SOURCE_APK_NAME, artifacts.single().sourceDisplayName)
-        assertTrue("Imported APK private copy missing", File(artifacts.single().storedPath).isFile)
-        assertTrue("Imported APK checksum missing", artifacts.single().sha256.length == 64)
     }
 
     @Test
@@ -70,6 +69,69 @@ class ApkImportRuntimeTest {
         val artifacts = GuestApkRepository(context).list()
         assertEquals("Persisted artifact record missing", 1, artifacts.size)
         assertTrue("Persisted private APK copy missing", File(artifacts.single().storedPath).isFile)
+    }
+
+    @Test
+    fun invalidApkShowsVisibleErrorWithoutCrash() {
+        clearImportedState()
+        val activity = launchCloneApp()
+        val monitor = interceptOpenDocument(FixtureApkProvider.invalidApkUri())
+
+        try {
+            clickImport(activity)
+            assertTrue(
+                "Import button did not launch ACTION_OPEN_DOCUMENT",
+                waitForMonitorHit(monitor)
+            )
+
+            val text = waitForTextContaining(activity, R.id.guestArtifactText, "Import failed:")
+            assertTrue(
+                "Invalid APK error was not visible",
+                text.contains("Selected file is not a valid APK archive")
+            )
+            assertTrue(
+                "Invalid APK must not create a guest artifact",
+                GuestApkRepository(context).list().isEmpty()
+            )
+            assertEquals(
+                "CloneApp should remain alive after invalid import",
+                MainActivity::class.java.name,
+                activity.componentName.className
+            )
+        } finally {
+            instrumentation.removeMonitor(monitor)
+        }
+    }
+
+    private fun interceptOpenDocument(uri: Uri): Instrumentation.ActivityMonitor {
+        val resultIntent = Intent().apply {
+            data = uri
+            addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
+        }
+        return instrumentation.addMonitor(
+            IntentFilter(Intent.ACTION_OPEN_DOCUMENT),
+            Instrumentation.ActivityResult(Activity.RESULT_OK, resultIntent),
+            true
+        )
+    }
+
+    private fun clickImport(activity: Activity) {
+        val importButton = activity.findViewById<Button>(R.id.importApk)
+        assertNotNull("Import Guest APK button not found", importButton)
+        instrumentation.runOnMainSync {
+            importButton.performClick()
+        }
+    }
+
+    private fun waitForMonitorHit(monitor: Instrumentation.ActivityMonitor): Boolean {
+        val deadline = SystemClock.uptimeMillis() + CONTRACT_TIMEOUT_MS
+        while (SystemClock.uptimeMillis() < deadline) {
+            if (monitor.hits > 0) {
+                return true
+            }
+            SystemClock.sleep(POLL_INTERVAL_MS)
+        }
+        return monitor.hits > 0
     }
 
     private fun launchCloneApp(): Activity {
@@ -109,37 +171,6 @@ class ApkImportRuntimeTest {
         return latest
     }
 
-    private fun waitForSourceApk(): UiObject2? {
-        device.waitForIdle()
-
-        device.wait(
-            Until.findObject(By.text(SOURCE_APK_NAME)),
-            SHORT_TIMEOUT_MS
-        )?.let { return it }
-
-        val drawer = device.wait(
-            Until.findObject(By.descContains("Show roots")),
-            TIMEOUT_MS
-        ) ?: device.findObject(By.descContains("Open navigation drawer"))
-            ?: device.findObject(By.descContains("Navigate up"))
-
-        assertNotNull("Android document picker navigation control not found", drawer)
-        drawer!!.click()
-
-        val downloads = device.wait(
-            Until.findObject(By.text("Downloads")),
-            TIMEOUT_MS
-        )
-        assertNotNull("Downloads root not found in Android document picker", downloads)
-        downloads!!.click()
-
-        device.waitForIdle()
-        return device.wait(
-            Until.findObject(By.text(SOURCE_APK_NAME)),
-            TIMEOUT_MS
-        )
-    }
-
     private fun clearImportedState() {
         context.getSharedPreferences("ca_guest_apks", Context.MODE_PRIVATE)
             .edit()
@@ -149,11 +180,9 @@ class ApkImportRuntimeTest {
     }
 
     private companion object {
-        const val DOCUMENTS_UI_PACKAGE = "com.google.android.documentsui"
         const val SOURCE_APK_NAME = "CA-Test-App-debug.apk"
         const val TIMEOUT_MS = 20_000L
-        const val PICKER_START_TIMEOUT_MS = 20_000L
-        const val SHORT_TIMEOUT_MS = 5_000L
+        const val CONTRACT_TIMEOUT_MS = 5_000L
         const val POLL_INTERVAL_MS = 100L
     }
 }
