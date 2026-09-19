@@ -20,9 +20,10 @@ class GitHubClient:
         self.token = token
         self.api_base = api_base.rstrip("/")
 
-    def _get_json(self, path: str) -> dict:
+    def _request(self, path: str, *, method: str = "GET") -> bytes:
         request = urllib.request.Request(
             f"{self.api_base}{path}",
+            method=method,
             headers={
                 "Accept": "application/vnd.github+json",
                 "Authorization": f"Bearer {self.token}",
@@ -32,12 +33,15 @@ class GitHubClient:
         )
         try:
             with urllib.request.urlopen(request, timeout=30) as response:
-                return json.loads(response.read().decode("utf-8"))
+                return response.read()
         except urllib.error.HTTPError as exc:
             body = exc.read().decode("utf-8", errors="replace")
             raise GitHubError(f"GitHub HTTP {exc.code}: {body}") from exc
         except urllib.error.URLError as exc:
             raise GitHubError(f"GitHub connection failed: {exc}") from exc
+
+    def _get_json(self, path: str) -> dict:
+        return json.loads(self._request(path).decode("utf-8"))
 
     def issue(self, number: int) -> IssueSnapshot:
         data = self._get_json(f"/repos/{self.repo}/issues/{number}")
@@ -49,6 +53,12 @@ class GitHubClient:
             title=str(data.get("title", "")),
             state=state,
             body=str(data.get("body") or ""),
+        )
+
+    def rerun_failed_jobs(self, run_id: int) -> None:
+        self._request(
+            f"/repos/{self.repo}/actions/runs/{run_id}/rerun-failed-jobs",
+            method="POST",
         )
 
     def workflow_jobs(self, run_id: int) -> list[dict]:
