@@ -2,6 +2,7 @@ import tempfile
 import unittest
 from pathlib import Path
 
+from ca_orchestrator.action_executor import CiActionExecutor
 from ca_orchestrator.engine import Orchestrator
 from ca_orchestrator.models import IssueSnapshot, PlannedIssue
 from ca_orchestrator.state import StateStore
@@ -175,6 +176,47 @@ class OrchestratorTests(unittest.TestCase):
             self.assertEqual("EMULATOR", result.reason)
             self.assertEqual("RUNTIME_CLASSIFICATION_REQUIRED", result.action)
             self.assertEqual([], state.active_claims())
+
+    def test_infrastructure_red_executes_one_live_retry_action(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            state = StateStore(root / "state.sqlite3")
+            state.upsert_ci_feedback(
+                run_id=77,
+                delivery_id="delivery-infra-red",
+                workflow_name="Android Build",
+                issue_number=1,
+                pr_number=32,
+                commit_sha="infra123",
+                head_branch="ca/1-apk-import-runtime-acceptance",
+                status="completed",
+                conclusion="failure",
+                result_state="RED",
+                classification="INFRASTRUCTURE",
+            )
+            retries = []
+            executor = CiActionExecutor(
+                state,
+                retry_infrastructure=lambda run_id: retries.append(run_id),
+                dispatch_repair=lambda issue, ci: None,
+            )
+            orchestrator = Orchestrator(
+                FakeGitHub({1: "open"}),
+                state,
+                WorkspaceManager(root / "workspaces"),
+                (PlannedIssue(1),),
+                action_executor=executor,
+            )
+
+            first = orchestrator.reconcile_and_dispatch_once()
+            second = orchestrator.reconcile_and_dispatch_once()
+
+            self.assertEqual("ACTION_COMPLETED", first.state)
+            self.assertEqual("RETRY_INFRASTRUCTURE", first.action)
+            self.assertEqual("ACTION_ALREADY_HANDLED", second.state)
+            self.assertEqual([77], retries)
+            self.assertEqual(1, state.failure_count(1, "ci:INFRASTRUCTURE"))
+
 
 
 if __name__ == "__main__":
