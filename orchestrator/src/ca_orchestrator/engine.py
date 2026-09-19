@@ -52,6 +52,26 @@ class Orchestrator:
                 continue
             if not self._dependencies_closed(item):
                 continue
+
+            ci = self.state.latest_ci_feedback(item.number)
+            if ci is not None:
+                result_state = str(ci["result_state"])
+                if result_state in {"ACTIVE", "RED", "GREEN"}:
+                    state = f"CI_{result_state}"
+                    _event(
+                        "ci_gate",
+                        issue=item.number,
+                        state=state,
+                        run_id=ci["run_id"],
+                        commit_sha=ci["commit_sha"],
+                        classification=ci["classification"],
+                    )
+                    return ReconcileResult(
+                        state=state,
+                        issue_number=item.number,
+                        reason=str(ci["classification"]),
+                    )
+
             if item.owner_gate:
                 _event("owner_decision", issue=item.number, title=issue.title)
                 return ReconcileResult(
