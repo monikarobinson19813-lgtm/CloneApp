@@ -6,19 +6,16 @@ import android.content.Context
 import android.content.Intent
 import android.net.Uri
 import android.os.SystemClock
+import android.widget.Button
 import android.widget.TextView
-import androidx.test.espresso.Espresso.onView
-import androidx.test.espresso.action.ViewActions.click
 import androidx.test.espresso.intent.Intents
 import androidx.test.espresso.intent.Intents.intended
 import androidx.test.espresso.intent.Intents.intending
 import androidx.test.espresso.intent.matcher.IntentMatchers.hasAction
-import androidx.test.espresso.matcher.ViewMatchers.withId
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.test.platform.app.InstrumentationRegistry
 import com.cloneapp.core.GuestApkRepository
 import com.cloneapp.core.PrototypeInstanceRegistry
-import org.hamcrest.Matchers.allOf
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
 import org.junit.Test
@@ -128,7 +125,13 @@ class ApkImportRuntimeTest {
             MainActivity::class.java.name,
             activity.componentName.className
         )
-        onView(withId(R.id.importApk)).perform(click())
+        instrumentation.runOnMainSync {
+            val button = activity.findViewById<Button>(R.id.importApk)
+                ?: error("Import Guest APK button not found")
+            assertTrue("Import Guest APK button is not enabled", button.isEnabled)
+            button.performClick()
+        }
+        instrumentation.waitForIdleSync()
     }
 
     private fun launchCloneApp(): Activity {
