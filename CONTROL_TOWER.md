@@ -21,21 +21,28 @@ Goal: run the same unmodified CA Test App APK as two independent virtual instanc
 
 **Engineering Operating System — Phase 1**
 
-We are installing the control structure before further engine work:
+Implemented:
 - bounded GitHub Issues;
 - worker protocol;
 - explicit acceptance criteria;
 - master/control-tower state;
 - automatic CI;
-- later: emulator test gate.
+- automatic build-state monitoring.
+
+Next Engineering OS upgrade:
+- **Issue #10 — Android emulator smoke-test lane.**
+
+## Current state
+
+**READY**
 
 ## Current engineering task
 
 **Issue #1 — Import one guest APK into CloneApp**
 
-The worker must only implement Issue #1.
+The Development Worker must only implement Issue #1.
 
-## Ordered queue
+## Ordered product queue
 
 1. Issue #1 — Guest APK import
 2. Issue #2 — Parse guest package/manifest/components
@@ -49,6 +56,13 @@ The worker must only implement Issue #1.
 
 Do not skip ahead merely because a later task looks interesting.
 
+## Engineering OS support queue
+
+- Issue #10 — Add Android emulator smoke-test lane.
+- Issue #11 — Automate Control Tower build-state monitoring.
+
+Issue #11 has begun operationally: an hourly build-state watch is active and should only surface meaningful completed RED/GREEN transitions, not unchanged in-progress noise.
+
 ## Last accepted build
 
 - CI checkpoint: Android Build #3
@@ -57,7 +71,7 @@ Do not skip ahead merely because a later task looks interesting.
 - Meaning: source compiled and both debug APK artifacts were produced.
 - Runtime virtualization: NOT YET GREEN.
 
-Documentation-only commits after this checkpoint do not change the accepted runtime baseline.
+Documentation-only/control-system commits after this checkpoint do not change the accepted runtime baseline.
 
 ## Current blockers
 
