@@ -1,0 +1,18 @@
+{
+  "routing": {
+    "implementation": "codex",
+    "architecture": "openai",
+    "research": "openai",
+    "security": "openai",
+    "independent_review": "anthropic",
+    "default": "openai"
+  },
+  "providers": {
+    "openai": {
+      "model": "gpt-5.6"
+    },
+    "anthropic": {
+      "model": "claude-sonnet-5"
+    }
+  }
+}
