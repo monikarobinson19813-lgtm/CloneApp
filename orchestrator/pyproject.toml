@@ -5,8 +5,12 @@ description = "Persistent control-plane orchestrator for CloneApp engineering"
 requires-python = ">=3.11"
 dependencies = []
 
+[project.optional-dependencies]
+slack = ["slack-bolt>=1.20,<2"]
+
 [project.scripts]
 ca-orchestrator = "ca_orchestrator.__main__:main"
+ca-slack-router = "ca_orchestrator.slack_router:main"
 
 [build-system]
 requires = ["setuptools>=68"]
