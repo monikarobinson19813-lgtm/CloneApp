@@ -201,18 +201,19 @@ and treat that as an Engineering OS defect.
 
 1. `CONTROL_TOWER.md`
 2. `AGENTS.md`
-3. `WORKER_PROTOCOL.md`
-4. GitHub Issue #20 (Control Room)
-5. open Pull Requests
-6. current GitHub Actions runs
-7. current issue
-8. `PRODUCT_VISION.md`
-9. `ROADMAP.md`
-10. `FEATURES.md`
-11. `DECISIONS.md`
-12. `ARCHITECTURE.md`
-13. `TEST_PLAN.md`
-14. `COMPATIBILITY_MATRIX.md`
-15. `AUTONOMY_ROADMAP.md` and `AUTONOMY_VENDOR_EVAL.md`
+3. `KNOWLEDGE_CAPTURE.md`
+4. `WORKER_PROTOCOL.md`
+5. GitHub Issue #20 (Control Room)
+6. open Pull Requests
+7. current GitHub Actions runs
+8. current issue
+9. `PRODUCT_VISION.md`
+10. `ROADMAP.md`
+11. `FEATURES.md`
+12. `DECISIONS.md`
+13. `ARCHITECTURE.md`
+14. `TEST_PLAN.md`
+15. `COMPATIBILITY_MATRIX.md`
+16. `AUTONOMY_ROADMAP.md` and `AUTONOMY_VENDOR_EVAL.md`
 
 Chat history is supplementary, not authoritative.
