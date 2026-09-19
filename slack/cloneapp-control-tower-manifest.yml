@@ -1,0 +1,34 @@
+_metadata:
+  major_version: 1
+
+display_information:
+  name: CloneApp Control Tower
+  description: Autonomous engineering coordination bot for CloneApp
+  background_color: "#1F2937"
+
+features:
+  bot_user:
+    display_name: CloneApp Control Tower
+    always_online: true
+
+oauth_config:
+  scopes:
+    bot:
+      - app_mentions:read
+      - chat:write
+      - channels:history
+      - channels:read
+      - groups:history
+      - groups:read
+      - groups:write
+
+settings:
+  event_subscriptions:
+    bot_events:
+      - app_mention
+      - message.channels
+      - message.groups
+  org_deploy_enabled: false
+  socket_mode_enabled: true
+  is_hosted: false
+  token_rotation_enabled: false
