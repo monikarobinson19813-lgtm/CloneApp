@@ -56,11 +56,11 @@ class CodexWorkerAdapter:
                 error_message="CODEX_API_KEY or CODEX_ACCESS_TOKEN is required",
             )
 
-        artifacts = root / ".ca-agent"
+        artifacts = self.state.path.parent / "worker-artifacts" / f"issue-{issue.number}"
         artifacts.mkdir(parents=True, exist_ok=True)
-        events_path = artifacts / f"issue-{issue.number}-events.jsonl"
-        final_path = artifacts / f"issue-{issue.number}-final.txt"
-        stderr_path = artifacts / f"issue-{issue.number}-stderr.txt"
+        events_path = artifacts / "events.jsonl"
+        final_path = artifacts / "final.txt"
+        stderr_path = artifacts / "stderr.txt"
 
         run_id = self.state.start_worker_run(
             issue.number,
