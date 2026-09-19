@@ -12,6 +12,7 @@ import java.security.MessageDigest
 class GuestApkRepository(private val context: Context) {
     private val importDir = File(context.filesDir, "guest-apks").apply { mkdirs() }
     private val prefs = context.getSharedPreferences("ca_guest_apks", Context.MODE_PRIVATE)
+    private val packageParser = GuestPackageParser(context)
 
     fun list(): List<GuestArtifact> {
         val raw = prefs.getString(KEY_ARTIFACTS, "[]") ?: "[]"
@@ -71,9 +72,22 @@ class GuestApkRepository(private val context: Context) {
             }
 
             val sha256 = ApkImportSupport.toHex(digest.digest())
-            list().firstOrNull { it.sha256 == sha256 && File(it.storedPath).isFile }?.let {
+            list().firstOrNull { it.sha256 == sha256 && File(it.storedPath).isFile }?.let { existing ->
                 temp.delete()
-                return@runCatching it
+                if (existing.packageMetadata != null) {
+                    return@runCatching existing
+                }
+                val enriched = existing.copy(
+                    packageMetadata = packageParser.parse(File(existing.storedPath))
+                        .getOrElse { error ->
+                            throw IllegalArgumentException(
+                                "Unable to parse APK metadata: ${error.message ?: "unknown error"}",
+                                error,
+                            )
+                        }
+                )
+                persist(list().filterNot { it.id == existing.id } + enriched)
+                return@runCatching enriched
             }
 
             val storedFile = File(importDir, "$sha256.apk")
@@ -84,6 +98,14 @@ class GuestApkRepository(private val context: Context) {
                 temp.delete()
             }
 
+            val metadata = packageParser.parse(storedFile)
+                .getOrElse { error ->
+                    throw IllegalArgumentException(
+                        "Unable to parse APK metadata: ${error.message ?: "unknown error"}",
+                        error,
+                    )
+                }
+
             val artifact = GuestArtifact(
                 id = sha256,
                 sourceDisplayName = sourceName,
@@ -91,7 +113,8 @@ class GuestApkRepository(private val context: Context) {
                 storedPath = storedFile.absolutePath,
                 sizeBytes = sizeBytes,
                 sha256 = sha256,
-                importedAtEpochMs = System.currentTimeMillis()
+                importedAtEpochMs = System.currentTimeMillis(),
+                packageMetadata = metadata,
             )
 
             persist(list() + artifact)
@@ -127,6 +150,7 @@ class GuestApkRepository(private val context: Context) {
         put("sizeBytes", sizeBytes)
         put("sha256", sha256)
         put("importedAtEpochMs", importedAtEpochMs)
+        put("packageMetadata", packageMetadata?.toJson() ?: JSONObject.NULL)
     }
 
     private fun JSONObject.toArtifact(): GuestArtifact = GuestArtifact(
@@ -136,8 +160,73 @@ class GuestApkRepository(private val context: Context) {
         storedPath = getString("storedPath"),
         sizeBytes = getLong("sizeBytes"),
         sha256 = getString("sha256"),
-        importedAtEpochMs = getLong("importedAtEpochMs")
+        importedAtEpochMs = getLong("importedAtEpochMs"),
+        packageMetadata = optJSONObject("packageMetadata")?.toPackageMetadata(),
     )
+
+    private fun GuestPackageMetadata.toJson(): JSONObject = JSONObject().apply {
+        put("packageName", packageName)
+        put("versionCode", versionCode)
+        put("versionName", versionName ?: JSONObject.NULL)
+        put("launcherActivity", launcherActivity ?: JSONObject.NULL)
+        put("activities", activities.toJsonArray())
+        put("services", services.toJsonArray())
+        put("providers", providers.toJsonArray())
+        put("receivers", receivers.toJsonArray())
+        put("requestedPermissions", requestedPermissions.toJsonArray())
+        put("nativeAbis", nativeAbis.toJsonArray())
+        put("nativeLibraries", nativeLibraries.toJsonArray())
+    }
+
+    private fun JSONObject.toPackageMetadata(): GuestPackageMetadata = GuestPackageMetadata(
+        packageName = getString("packageName"),
+        versionCode = getLong("versionCode"),
+        versionName = optString("versionName").takeIf { it.isNotBlank() && it != "null" },
+        launcherActivity = optString("launcherActivity").takeIf { it.isNotBlank() && it != "null" },
+        activities = getJSONArray("activities").toComponents(),
+        services = getJSONArray("services").toComponents(),
+        providers = getJSONArray("providers").toComponents(),
+        receivers = getJSONArray("receivers").toComponents(),
+        requestedPermissions = getJSONArray("requestedPermissions").toStrings(),
+        nativeAbis = getJSONArray("nativeAbis").toStrings(),
+        nativeLibraries = getJSONArray("nativeLibraries").toStrings(),
+    )
+
+    private fun List<GuestComponentMetadata>.toJsonArray(): JSONArray = JSONArray().also { array ->
+        forEach { component ->
+            array.put(JSONObject().apply {
+                put("name", component.name)
+                put("exported", component.exported)
+                put("permission", component.permission ?: JSONObject.NULL)
+                put("authorities", component.authorities.toJsonArray())
+            })
+        }
+    }
+
+    private fun List<String>.toJsonArray(): JSONArray = JSONArray().also { array ->
+        forEach(array::put)
+    }
+
+    private fun JSONArray.toComponents(): List<GuestComponentMetadata> = buildList {
+        for (index in 0 until length()) {
+            val item = getJSONObject(index)
+            add(
+                GuestComponentMetadata(
+                    name = item.getString("name"),
+                    exported = item.getBoolean("exported"),
+                    permission = item.optString("permission")
+                        .takeIf { it.isNotBlank() && it != "null" },
+                    authorities = item.getJSONArray("authorities").toStrings(),
+                )
+            )
+        }
+    }
+
+    private fun JSONArray.toStrings(): List<String> = buildList {
+        for (index in 0 until length()) {
+            add(getString(index))
+        }
+    }
 
     private companion object {
         const val KEY_ARTIFACTS = "artifacts"
