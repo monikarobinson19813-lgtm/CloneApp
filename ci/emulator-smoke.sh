@@ -18,14 +18,14 @@ adb install -r ci-artifacts/cloneapp/app-debug.apk
 adb install -r ci-artifacts/testapp/testapp-debug.apk
 
 adb shell am force-stop com.cloneapp.ca || true
-adb shell monkey -p com.cloneapp.ca -c android.intent.category.LAUNCHER 1
-sleep 3
+adb shell am start -W -n com.cloneapp.ca/.MainActivity
+sleep 2
 adb shell pidof com.cloneapp.ca > ci-artifacts/evidence/cloneapp-pid.txt
 test -s ci-artifacts/evidence/cloneapp-pid.txt
 
 adb shell am force-stop com.cloneapp.testapp || true
-adb shell monkey -p com.cloneapp.testapp -c android.intent.category.LAUNCHER 1
-sleep 3
+adb shell am start -W -n com.cloneapp.testapp/.MainActivity
+sleep 2
 adb shell pidof com.cloneapp.testapp > ci-artifacts/evidence/testapp-pid.txt
 test -s ci-artifacts/evidence/testapp-pid.txt
 
