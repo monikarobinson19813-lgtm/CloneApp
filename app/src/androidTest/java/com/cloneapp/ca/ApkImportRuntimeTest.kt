@@ -34,6 +34,12 @@ class ApkImportRuntimeTest {
         assertNotNull("Import Guest APK button not found", importButton)
         importButton!!.click()
 
+        val pickerOpened = device.wait(
+            Until.hasObject(By.pkg(DOCUMENTS_UI_PACKAGE)),
+            PICKER_START_TIMEOUT_MS
+        )
+        assertTrue("Android document picker did not open", pickerOpened)
+
         val apk = waitForSourceApk()
         assertNotNull("CA Test App APK was not visible in Android document picker", apk)
         apk!!.click()
@@ -96,18 +102,23 @@ class ApkImportRuntimeTest {
             SHORT_TIMEOUT_MS
         )?.let { return it }
 
-        val drawer = device.findObject(By.descContains("Show roots"))
-            ?: device.findObject(By.descContains("Open navigation drawer"))
+        val drawer = device.wait(
+            Until.findObject(By.descContains("Show roots")),
+            TIMEOUT_MS
+        ) ?: device.findObject(By.descContains("Open navigation drawer"))
             ?: device.findObject(By.descContains("Navigate up"))
 
-        drawer?.click()
+        assertNotNull("Android document picker navigation control not found", drawer)
+        drawer!!.click()
 
         val downloads = device.wait(
             Until.findObject(By.text("Downloads")),
-            SHORT_TIMEOUT_MS
+            TIMEOUT_MS
         )
-        downloads?.click()
+        assertNotNull("Downloads root not found in Android document picker", downloads)
+        downloads!!.click()
 
+        device.waitForIdle()
         return device.wait(
             Until.findObject(By.text(SOURCE_APK_NAME)),
             TIMEOUT_MS
@@ -123,8 +134,10 @@ class ApkImportRuntimeTest {
     }
 
     private companion object {
+        const val DOCUMENTS_UI_PACKAGE = "com.google.android.documentsui"
         const val SOURCE_APK_NAME = "CA-Test-App-debug.apk"
         const val TIMEOUT_MS = 15_000L
+        const val PICKER_START_TIMEOUT_MS = 20_000L
         const val SHORT_TIMEOUT_MS = 5_000L
     }
 }
