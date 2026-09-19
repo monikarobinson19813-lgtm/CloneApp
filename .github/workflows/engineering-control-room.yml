@@ -1,0 +1,160 @@
+name: Engineering Control Room
+
+on:
+  schedule:
+    - cron: '*/10 * * * *'
+  workflow_run:
+    workflows: ["Android Build"]
+    types: [requested, in_progress, completed]
+  pull_request:
+    types: [opened, closed, reopened, synchronize, ready_for_review]
+  issues:
+    types: [opened, closed, reopened]
+  workflow_dispatch:
+
+permissions:
+  actions: read
+  contents: read
+  issues: write
+  pull-requests: read
+
+concurrency:
+  group: cloneapp-engineering-control-room
+  cancel-in-progress: true
+
+jobs:
+  refresh:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Refresh owner-facing status
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const { owner, repo } = context.repo;
+            const statusIssue = 20;
+
+            const runsResponse = await github.rest.actions.listWorkflowRunsForRepo({
+              owner,
+              repo,
+              per_page: 30
+            });
+            const androidRuns = runsResponse.data.workflow_runs
+              .filter(run => run.name === 'Android Build')
+              .slice(0, 8);
+
+            const prsResponse = await github.rest.pulls.list({
+              owner,
+              repo,
+              state: 'open',
+              per_page: 30,
+              sort: 'updated',
+              direction: 'desc'
+            });
+
+            const issuesResponse = await github.rest.issues.listForRepo({
+              owner,
+              repo,
+              state: 'open',
+              per_page: 100,
+              sort: 'updated',
+              direction: 'desc'
+            });
+            const engineeringIssues = issuesResponse.data
+              .filter(issue => !issue.pull_request && issue.number !== statusIssue);
+
+            let controlTower = '';
+            try {
+              const contentResponse = await github.rest.repos.getContent({
+                owner,
+                repo,
+                path: 'CONTROL_TOWER.md'
+              });
+              if (!Array.isArray(contentResponse.data) && contentResponse.data.content) {
+                controlTower = Buffer.from(
+                  contentResponse.data.content,
+                  contentResponse.data.encoding || 'base64'
+                ).toString('utf8');
+              }
+            } catch (error) {
+              core.warning(`Unable to read CONTROL_TOWER.md: ${error.message}`);
+            }
+
+            const capture = (heading) => {
+              const escaped = heading.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+              const match = controlTower.match(
+                new RegExp(`## ${escaped}\\s+\\*\\*([^*]+)\\*\\*`, 'i')
+              );
+              return match ? match[1].trim() : 'Unknown';
+            };
+
+            const currentState = capture('Current state');
+            const activeRuns = androidRuns.filter(
+              run => run.status === 'queued' || run.status === 'in_progress'
+            );
+            const failedRuns = androidRuns.filter(
+              run => run.status === 'completed' && run.conclusion === 'failure'
+            );
+
+            let systemState = 'HEALTHY_IDLE';
+            if (activeRuns.length > 0) {
+              systemState = 'ACTIVE';
+            } else if (prsResponse.data.length > 0) {
+              systemState = 'WAITING_ON_REVIEW_OR_NEXT_ACTION';
+            } else if (engineeringIssues.length > 0) {
+              systemState = 'IDLE_WITH_OPEN_WORK';
+            }
+
+            const formatRun = (run) => {
+              const icon =
+                run.status !== 'completed' ? '🟡' :
+                run.conclusion === 'success' ? '✅' :
+                run.conclusion === 'failure' ? '❌' : '⚪';
+              return `- ${icon} [#${run.run_number} — ${run.display_title}](${run.html_url}) — **${run.status}${run.conclusion ? '/' + run.conclusion : ''}** — \`${run.head_branch}`\n`;
+            };
+
+            const formatPr = (pr) =>
+              `- [PR #${pr.number} — ${pr.title}](${pr.html_url}) — \`${pr.head.ref}` → \`${pr.base.ref}`\n`;
+
+            const formatIssue = (issue) =>
+              `- [#${issue.number} — ${issue.title}](${issue.html_url})\n`;
+
+            const now = new Date().toISOString();
+            const body = [
+              '# CloneApp Engineering Control Room',
+              '',
+              '> Automatically refreshed from GitHub state. GitHub is the engineering source of truth.',
+              '',
+              `**Last refresh:** ${now}`,
+              `**System state:** ${systemState}`,
+              `**Control Tower state:** ${currentState}`,
+              `**Active/queued Android runs:** ${activeRuns.length}`,
+              `**Open pull requests:** ${prsResponse.data.length}`,
+              `**Open engineering issues:** ${engineeringIssues.length}`,
+              failedRuns.length ? `**Recent failed Android runs shown below:** ${failedRuns.length}` : '**Recent failed Android runs shown below:** 0',
+              '',
+              '## Active / recent Android Build runs',
+              '',
+              androidRuns.length ? androidRuns.map(formatRun).join('') : '- None',
+              '',
+              '## Open pull requests',
+              '',
+              prsResponse.data.length ? prsResponse.data.slice(0, 10).map(formatPr).join('') : '- None',
+              '',
+              '## Most recently updated open engineering issues',
+              '',
+              engineeringIssues.length ? engineeringIssues.slice(0, 15).map(formatIssue).join('') : '- None',
+              '',
+              '## Owner action rule',
+              '',
+              'Naveen should only need to intervene for an explicit owner decision, architecture/security/privacy gate, paid infrastructure decision, or milestone/release review.',
+              '',
+              '_A green CI build is not automatically Feature GREEN; required runtime/emulator/device gates still apply._'
+            ].join('\n');
+
+            await github.rest.issues.update({
+              owner,
+              repo,
+              issue_number: statusIssue,
+              body
+            });
