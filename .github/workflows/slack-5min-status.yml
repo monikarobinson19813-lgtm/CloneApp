@@ -1,0 +1,118 @@
+name: Slack 5-Minute Status
+
+on:
+  schedule:
+    - cron: '*/5 * * * *'
+  workflow_run:
+    workflows:
+      - Android Build
+      - Orchestrator Tests
+    types: [requested, in_progress, completed]
+  pull_request:
+    types: [opened, synchronize, closed, reopened, ready_for_review]
+  issues:
+    types: [opened, closed, reopened]
+  workflow_dispatch:
+
+permissions:
+  actions: read
+  contents: read
+  issues: read
+  pull-requests: read
+
+concurrency:
+  group: cloneapp-slack-status
+  cancel-in-progress: true
+
+jobs:
+  post-status:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    env:
+      SLACK_BOT_TOKEN: ${{ secrets.SLACK_BOT_TOKEN }}
+      SLACK_CHANNEL_ID: C0C35CDV752
+      GH_TOKEN: ${{ github.token }}
+
+    steps:
+      - name: Post whole-project status to Slack
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          if [ -z "$SLACK_BOT_TOKEN" ]; then
+            echo "::warning::SLACK_BOT_TOKEN is not configured; skipping Slack post."
+            exit 0
+          fi
+
+          RUNS="$(gh run list --repo "$GITHUB_REPOSITORY" --limit 12 --json databaseId,name,displayTitle,status,conclusion,headBranch,createdAt,url)"
+          PRS="$(gh pr list --repo "$GITHUB_REPOSITORY" --state open --limit 20 --json number,title,headRefName,url)"
+          ISSUES="$(gh issue list --repo "$GITHUB_REPOSITORY" --state open --limit 50 --json number,title,url)"
+
+          ACTIVE_COUNT="$(printf '%s' "$RUNS" | jq '[.[] | select(.status=="queued" or .status=="pending" or .status=="in_progress")] | length')"
+          PR_COUNT="$(printf '%s' "$PRS" | jq 'length')"
+          ISSUE_COUNT="$(printf '%s' "$ISSUES" | jq 'length')"
+          RED_COUNT="$(printf '%s' "$RUNS" | jq '[.[] | select(.status=="completed" and .conclusion=="failure")] | length')"
+
+          if [ "$ACTIVE_COUNT" -gt 0 ]; then
+            SYSTEM_STATE="ACTIVE_CI"
+          elif [ "$PR_COUNT" -gt 0 ]; then
+            SYSTEM_STATE="WAITING_ON_REVIEW_OR_NEXT_ACTION"
+          elif [ "$ISSUE_COUNT" -gt 0 ]; then
+            SYSTEM_STATE="IDLE_WITH_OPEN_WORK"
+          else
+            SYSTEM_STATE="HEALTHY_IDLE"
+          fi
+
+          LATEST_RUNS="$(printf '%s' "$RUNS" | jq -r '
+            .[0:5][] |
+            (if .status != "completed" then "🟡"
+             elif .conclusion == "success" then "✅"
+             elif .conclusion == "failure" then "❌"
+             else "⚪" end)
+            + " " + .name + " — " + .status
+            + (if .conclusion then "/" + .conclusion else "" end)
+            + " — " + .displayTitle
+          ' || true)"
+
+          OPEN_PRS="$(printf '%s' "$PRS" | jq -r '.[0:5][] | "• PR #" + (.number|tostring) + " " + .title' || true)"
+
+          NOW="$(date -u +'%Y-%m-%dT%H:%M:%SZ')"
+          TRIGGER="$GITHUB_EVENT_NAME"
+
+          if [ "$SYSTEM_STATE" = "IDLE_WITH_OPEN_WORK" ]; then
+            IDLE_NOTE="⚠️ Open work exists with no active CI or PR. Control Tower must dispatch or explain blocker."
+          elif [ "$SYSTEM_STATE" = "WAITING_ON_REVIEW_OR_NEXT_ACTION" ]; then
+            IDLE_NOTE="🟠 No CI is active; open PR work is waiting on acceptance/merge/next action."
+          else
+            IDLE_NOTE="🟢 No unnecessary idle state detected from GitHub signals."
+          fi
+
+          MESSAGE="$(cat <<EOF
+          [STATUS] CloneApp whole-project heartbeat — $NOW
+
+          System: *$SYSTEM_STATE*
+          Trigger: $TRIGGER
+          Active/queued CI: $ACTIVE_COUNT
+          Open PRs: $PR_COUNT
+          Open issues: $ISSUE_COUNT
+          Recent RED runs: $RED_COUNT
+
+          *Latest CI:*
+          ${LATEST_RUNS:-• none}
+
+          *Open PRs:*
+          ${OPEN_PRS:-• none}
+
+          $IDLE_NOTE
+          EOF
+          )"
+
+          PAYLOAD="$(jq -n             --arg channel "$SLACK_CHANNEL_ID"             --arg text "$MESSAGE"             '{channel:$channel,text:$text,unfurl_links:false,unfurl_media:false}')"
+
+          RESPONSE="$(curl -sS -X POST https://slack.com/api/chat.postMessage             -H "Authorization: Bearer $SLACK_BOT_TOKEN"             -H "Content-Type: application/json; charset=utf-8"             --data "$PAYLOAD")"
+
+          OK="$(printf '%s' "$RESPONSE" | jq -r '.ok')"
+          if [ "$OK" != "true" ]; then
+            echo "$RESPONSE"
+            exit 1
+          fi

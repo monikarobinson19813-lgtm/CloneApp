@@ -2,7 +2,7 @@ name: Engineering Control Room
 
 on:
   schedule:
-    - cron: '*/10 * * * *'
+    - cron: '*/5 * * * *'
   workflow_run:
     workflows: ["Android Build"]
     types: [requested, in_progress, completed]
