@@ -60,7 +60,7 @@ Do not skip ahead merely because a later task looks interesting.
 
 - Issue #10 — Android emulator smoke-test lane — **PUSHED**, awaiting reliable evidence.
 - Issue #11 — Control Tower monitoring — **operational**, but hourly scheduling is transitional.
-- Issue #12 — PR-first autonomous worker delivery.
+- Issue #12 — PR-first autonomous worker delivery — **IN PROGRESS** on `eng-os/12-pr-first-autonomy`.
 - Issue #13 — Persistent Symphony-style orchestrator POC.
 - Issue #14 — Codex worker adapter.
 - Issue #15 — Event-driven CI feedback.
