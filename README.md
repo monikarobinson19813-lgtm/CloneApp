@@ -6,6 +6,11 @@ This repository is the first implementation scaffold for CloneApp.
 
 Use these files to answer "what are we building?", "where are we now?" and "what is next?":
 
+- [CONTROL_TOWER.md](CONTROL_TOWER.md) — current milestone, current issue, next issue, blockers and decision gates.
+- [WORKER_PROTOCOL.md](WORKER_PROTOCOL.md) — bounded rules for development, test, CI and review agents.
+- [ENGINEERING_OS.md](ENGINEERING_OS.md) — phased plan for increasingly autonomous software development.
+- [THREAD_PLAYBOOK.md](THREAD_PLAYBOOK.md) — how Control Tower, worker and test threads should be used.
+- [AGENTS.md](AGENTS.md) — repository instructions for any coding/review agent.
 - [PRODUCT_VISION.md](PRODUCT_VISION.md) — what CA should ultimately become; competitive aspiration and product promise.
 - [ASPIRATION_MATRIX.md](ASPIRATION_MATRIX.md) — Multiple Accounts / Parallel Space / peer feature baseline vs CA target.
 - [ROADMAP.md](ROADMAP.md) — milestone path from v0.1 to v1.0 and current engineering focus.
@@ -25,6 +30,8 @@ Implemented:
 - `app`: CloneApp host/dashboard scaffold.
 - `ca-core`: virtual-instance contracts, metadata registry and per-instance host storage layout.
 - `testapp`: controlled CA Test App with state-isolation probes.
+- Control Tower / worker protocol / bounded GitHub issue queue.
+- automatic hourly build-state watch for meaningful CI transitions.
 
 Not implemented yet:
 - loading a guest APK into CA;
@@ -95,7 +102,6 @@ The milestone is GREEN only when:
 
 Until all relevant checks pass, CA must remain marked experimental.
 
-
 ## Build pipeline
 
 Every push to `main` runs `.github/workflows/android-build.yml` on GitHub Actions.
@@ -106,4 +112,4 @@ The workflow builds and uploads two debug APK artifacts:
 
 The build uses JDK 17, Gradle 9.6.0, Android Gradle Plugin 9.4.0, and compile/target SDK 36.
 
-A green CI build means the source compiles and the APK artifacts were produced. It does **not** mean guest-app virtualization is working; that remains a separate physical-device validation gate.
+A green CI build means the source compiles and the APK artifacts were produced. It does **not** mean guest-app virtualization is working; that remains a separate runtime/device validation gate.
