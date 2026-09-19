@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import json
 import sqlite3
+import uuid
 from contextlib import contextmanager
 from datetime import datetime, timezone
 from pathlib import Path
@@ -14,11 +15,7 @@ def _now() -> str:
 
 
 class StateStore:
-    """Restart-safe orchestration state backed by SQLite.
-
-    BEGIN IMMEDIATE plus a global active-claim count gives us a single-writer,
-    bounded-concurrency claim operation without relying on chat/session memory.
-    """
+    """Restart-safe orchestration state backed by SQLite."""
 
     def __init__(self, path: str | Path, concurrency: int = 1) -> None:
         self.path = Path(path)
@@ -55,6 +52,24 @@ class StateStore:
                     updated_at TEXT NOT NULL,
                     PRIMARY KEY (issue_number, fingerprint)
                 );
+                CREATE TABLE IF NOT EXISTS worker_runs (
+                    run_id TEXT PRIMARY KEY,
+                    issue_number INTEGER NOT NULL,
+                    workspace TEXT NOT NULL,
+                    status TEXT NOT NULL,
+                    started_at TEXT NOT NULL,
+                    completed_at TEXT,
+                    exit_code INTEGER,
+                    thread_id TEXT,
+                    commit_sha TEXT,
+                    events_path TEXT,
+                    final_message_path TEXT,
+                    stderr_path TEXT,
+                    error_kind TEXT,
+                    error_message TEXT
+                );
+                CREATE INDEX IF NOT EXISTS worker_runs_issue_started
+                    ON worker_runs(issue_number, started_at DESC);
                 """
             )
 
@@ -122,6 +137,80 @@ class StateStore:
             for row in rows
         ]
 
+    def start_worker_run(
+        self,
+        issue_number: int,
+        workspace: str,
+        events_path: str,
+        final_message_path: str,
+        stderr_path: str,
+    ) -> str:
+        run_id = uuid.uuid4().hex
+        with self._connection() as conn:
+            conn.execute(
+                """
+                INSERT INTO worker_runs(
+                    run_id, issue_number, workspace, status, started_at,
+                    events_path, final_message_path, stderr_path
+                )
+                VALUES (?, ?, ?, 'running', ?, ?, ?, ?)
+                """,
+                (
+                    run_id,
+                    issue_number,
+                    workspace,
+                    _now(),
+                    events_path,
+                    final_message_path,
+                    stderr_path,
+                ),
+            )
+        return run_id
+
+    def finish_worker_run(
+        self,
+        run_id: str,
+        *,
+        status: str,
+        exit_code: int | None = None,
+        thread_id: str | None = None,
+        commit_sha: str | None = None,
+        error_kind: str | None = None,
+        error_message: str | None = None,
+    ) -> None:
+        with self._connection() as conn:
+            conn.execute(
+                """
+                UPDATE worker_runs
+                SET status = ?, completed_at = ?, exit_code = ?, thread_id = ?,
+                    commit_sha = ?, error_kind = ?, error_message = ?
+                WHERE run_id = ?
+                """,
+                (
+                    status,
+                    _now(),
+                    exit_code,
+                    thread_id,
+                    commit_sha,
+                    error_kind,
+                    error_message,
+                    run_id,
+                ),
+            )
+
+    def latest_worker_run(self, issue_number: int) -> dict | None:
+        with self._connection() as conn:
+            row = conn.execute(
+                """
+                SELECT * FROM worker_runs
+                WHERE issue_number = ?
+                ORDER BY started_at DESC
+                LIMIT 1
+                """,
+                (issue_number,),
+            ).fetchone()
+        return dict(row) if row is not None else None
+
     def record_failure(self, issue_number: int, fingerprint: str) -> int:
         with self._connection() as conn:
             conn.execute("BEGIN IMMEDIATE")
@@ -148,16 +237,29 @@ class StateStore:
 
     def export(self) -> dict:
         with self._connection() as conn:
-            claims = [dict(row) for row in conn.execute(
-                "SELECT * FROM claims ORDER BY issue_number"
-            ).fetchall()]
-            failures = [dict(row) for row in conn.execute(
-                "SELECT * FROM failures ORDER BY issue_number, fingerprint"
-            ).fetchall()]
+            claims = [
+                dict(row)
+                for row in conn.execute(
+                    "SELECT * FROM claims ORDER BY issue_number"
+                ).fetchall()
+            ]
+            failures = [
+                dict(row)
+                for row in conn.execute(
+                    "SELECT * FROM failures ORDER BY issue_number, fingerprint"
+                ).fetchall()
+            ]
+            worker_runs = [
+                dict(row)
+                for row in conn.execute(
+                    "SELECT * FROM worker_runs ORDER BY started_at DESC LIMIT 50"
+                ).fetchall()
+            ]
         return {
             "concurrency": self.concurrency,
             "claims": claims,
             "failures": failures,
+            "worker_runs": worker_runs,
         }
 
     def export_json(self) -> str:
