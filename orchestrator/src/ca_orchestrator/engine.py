@@ -117,9 +117,22 @@ class Orchestrator:
         if (
             result.state == "CI_RED"
             and result.issue_number is not None
-            and result.action == "RETRY_INFRASTRUCTURE"
+            and result.action in {"RETRY_INFRASTRUCTURE", "DISPATCH_REPAIR"}
             and self.action_executor is not None
         ):
+            if result.action == "DISPATCH_REPAIR" and self.worker is None:
+                _event(
+                    "repair_worker_unavailable",
+                    issue=result.issue_number,
+                    reason="worker_not_configured",
+                )
+                return ReconcileResult(
+                    state="REPAIR_WORKER_UNAVAILABLE",
+                    issue_number=result.issue_number,
+                    reason="worker_not_configured",
+                    action=result.action,
+                )
+
             ci = self.state.latest_ci_feedback(result.issue_number)
             if ci is None:
                 return result
