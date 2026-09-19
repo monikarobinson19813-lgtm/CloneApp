@@ -28,11 +28,15 @@ A Development Worker must:
 4. Add/update automated tests where practical.
 5. Avoid unrelated refactors.
 6. Update documentation only when required by the task.
-7. Commit/push the patch.
-8. Record what changed and any known limitations.
-9. Stop.
+7. Create/use an issue-specific branch. Do not push routine autonomous feature work directly to `main`.
+8. Commit/push the patch to that branch.
+9. Open or update one pull request for the issue.
+10. Record what changed, acceptance evidence and any known limitations in the PR/issue.
+11. Stop.
 
 A Development Worker must NOT:
+- push routine autonomous product changes directly to `main`;
+- merge its own PR unless Control Tower policy explicitly allows auto-merge after required checks;
 - choose the next issue;
 - broaden scope because another improvement is obvious;
 - redesign accepted architecture without a decision gate;
@@ -114,7 +118,44 @@ Acceptance criteria passed in the required runtime environment.
 
 Never conflate them.
 
-# 8. Commit discipline
+# 8. Branch / PR discipline
+
+Default autonomous delivery flow:
+
+```text
+GitHub Issue
+   ↓
+issue-specific branch
+   ↓
+bounded commits
+   ↓
+Pull Request
+   ↓
+required CI / emulator / review gates
+   ↓
+Control Tower acceptance
+   ↓
+merge
+```
+
+Branch naming:
+
+```text
+ca/<issue>-<short-slug>
+eng-os/<issue>-<short-slug>
+```
+
+Direct-to-`main` writes are reserved for exceptional repository-control changes while the autonomous PR system itself is being established. The steady state is PR-first.
+
+Auto-merge may be enabled only when:
+- the issue is already approved;
+- no owner/architecture/security gate is present;
+- required CI is GREEN;
+- required runtime/emulator evidence is GREEN;
+- no unresolved review findings remain;
+- the PR head has not changed since validation.
+
+# 9. Commit discipline
 
 Prefer one bounded logical change per commit.
 
@@ -132,7 +173,7 @@ CA-2: parse guest package metadata
 CA-6: isolate virtual user file roots
 ```
 
-# 9. Failure budget / anti-loop controls
+# 10. Failure budget / anti-loop controls
 
 If the same issue fails three materially similar attempts:
 - stop automatic patching;
@@ -143,7 +184,7 @@ Do not enter a fourth blind patch loop.
 
 If a fix changes the fundamental approach, invoke an architecture decision gate.
 
-# 10. Parallel work rule
+# 11. Parallel work rule
 
 Parallel workers are allowed only when:
 - files/ownership boundaries are clear;
@@ -152,7 +193,7 @@ Parallel workers are allowed only when:
 
 Do not parallelize tightly coupled Virtual Engine foundations merely for speed.
 
-# 11. Owner involvement
+# 12. Owner involvement
 
 Naveen is Product Owner, not CI operator.
 
