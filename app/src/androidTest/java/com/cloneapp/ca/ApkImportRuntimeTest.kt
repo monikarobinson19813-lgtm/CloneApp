@@ -12,6 +12,7 @@ import android.widget.TextView
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.test.platform.app.InstrumentationRegistry
 import com.cloneapp.core.GuestApkRepository
+import com.cloneapp.core.PrototypeInstanceRegistry
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNotNull
 import org.junit.Assert.assertTrue
@@ -29,6 +30,8 @@ class ApkImportRuntimeTest {
         clearImportedState()
         val activity = launchCloneApp()
         val monitor = interceptOpenDocument(FixtureApkProvider.validApkUri())
+        val registry = PrototypeInstanceRegistry(context)
+        val sentinel = registry.create("com.cloneapp.registry-sentinel", "Registry Sentinel")
 
         try {
             clickImport(activity)
@@ -53,7 +56,12 @@ class ApkImportRuntimeTest {
                 "${artifact.sha256}.apk",
                 File(artifact.storedPath).name
             )
+            assertTrue(
+                "Guest import must not disturb the existing instance registry",
+                registry.list().any { it.id == sentinel.id }
+            )
         } finally {
+            registry.delete(sentinel.id)
             instrumentation.removeMonitor(monitor)
         }
     }
@@ -108,8 +116,12 @@ class ApkImportRuntimeTest {
             data = uri
             addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
         }
+        val filter = IntentFilter(Intent.ACTION_OPEN_DOCUMENT).apply {
+            addCategory(Intent.CATEGORY_OPENABLE)
+            addDataType("*/*")
+        }
         return instrumentation.addMonitor(
-            IntentFilter(Intent.ACTION_OPEN_DOCUMENT),
+            filter,
             Instrumentation.ActivityResult(Activity.RESULT_OK, resultIntent),
             true
         )
