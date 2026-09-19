@@ -218,6 +218,88 @@ class OrchestratorTests(unittest.TestCase):
             self.assertEqual(1, state.failure_count(1, "ci:INFRASTRUCTURE"))
 
 
+    def test_build_red_without_worker_stops_without_consuming_repair_attempt(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            state = StateStore(root / "state.sqlite3")
+            state.upsert_ci_feedback(
+                run_id=88,
+                delivery_id="delivery-build-red-no-worker",
+                workflow_name="Android Build",
+                issue_number=1,
+                pr_number=32,
+                commit_sha="build123",
+                head_branch="ca/1-apk-import-runtime-acceptance",
+                status="completed",
+                conclusion="failure",
+                result_state="RED",
+                classification="BUILD",
+            )
+            repairs = []
+            executor = CiActionExecutor(
+                state,
+                retry_infrastructure=lambda run_id: None,
+                dispatch_repair=lambda issue, ci: repairs.append((issue, ci["run_id"])),
+            )
+            orchestrator = Orchestrator(
+                FakeGitHub({1: "open"}),
+                state,
+                WorkspaceManager(root / "workspaces"),
+                (PlannedIssue(1),),
+                worker=None,
+                action_executor=executor,
+            )
+
+            result = orchestrator.reconcile_and_dispatch_once()
+
+            self.assertEqual("REPAIR_WORKER_UNAVAILABLE", result.state)
+            self.assertEqual("DISPATCH_REPAIR", result.action)
+            self.assertEqual([], repairs)
+            self.assertEqual(0, state.failure_count(1, "ci:BUILD"))
+            self.assertEqual([], state.export()["action_executions"])
+
+    def test_build_red_dispatches_exactly_one_repair_when_worker_is_configured(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            state = StateStore(root / "state.sqlite3")
+            state.upsert_ci_feedback(
+                run_id=89,
+                delivery_id="delivery-build-red-worker",
+                workflow_name="Android Build",
+                issue_number=1,
+                pr_number=32,
+                commit_sha="build456",
+                head_branch="ca/1-apk-import-runtime-acceptance",
+                status="completed",
+                conclusion="failure",
+                result_state="RED",
+                classification="BUILD",
+            )
+            repairs = []
+            executor = CiActionExecutor(
+                state,
+                retry_infrastructure=lambda run_id: None,
+                dispatch_repair=lambda issue, ci: repairs.append((issue, ci["run_id"])),
+            )
+            orchestrator = Orchestrator(
+                FakeGitHub({1: "open"}),
+                state,
+                WorkspaceManager(root / "workspaces"),
+                (PlannedIssue(1),),
+                worker=object(),
+                action_executor=executor,
+            )
+
+            first = orchestrator.reconcile_and_dispatch_once()
+            second = orchestrator.reconcile_and_dispatch_once()
+
+            self.assertEqual("ACTION_COMPLETED", first.state)
+            self.assertEqual("DISPATCH_REPAIR", first.action)
+            self.assertEqual("ACTION_ALREADY_HANDLED", second.state)
+            self.assertEqual([(1, 89)], repairs)
+            self.assertEqual(1, state.failure_count(1, "ci:BUILD"))
+
+
 
 if __name__ == "__main__":
     unittest.main()
