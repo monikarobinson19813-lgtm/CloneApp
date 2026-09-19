@@ -30,6 +30,9 @@ jobs:
         with:
           gradle-version: '9.6.0'
 
+      - name: Run CA Core unit tests
+        run: gradle --no-daemon :ca-core:testDebugUnitTest
+
       - name: Build debug APKs
         run: gradle --no-daemon :app:assembleDebug :testapp:assembleDebug
 
