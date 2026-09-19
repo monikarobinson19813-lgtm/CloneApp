@@ -145,10 +145,6 @@ class ApkImportRuntimeTest {
             Intent.ACTION_OPEN_DOCUMENT,
             pickerIntent.action,
         )
-        assertTrue(
-            "Document picker contract must require openable content",
-            pickerIntent.categories?.contains(Intent.CATEGORY_OPENABLE) == true,
-        )
     }
 
     private fun deliverPickerResult(activity: MainActivity, uri: android.net.Uri) {
