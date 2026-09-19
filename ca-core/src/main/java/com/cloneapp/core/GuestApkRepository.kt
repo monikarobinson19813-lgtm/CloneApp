@@ -169,13 +169,13 @@ class GuestApkRepository(private val context: Context) {
         put("versionCode", versionCode)
         put("versionName", versionName ?: JSONObject.NULL)
         put("launcherActivity", launcherActivity ?: JSONObject.NULL)
-        put("activities", activities.toJsonArray())
-        put("services", services.toJsonArray())
-        put("providers", providers.toJsonArray())
-        put("receivers", receivers.toJsonArray())
-        put("requestedPermissions", requestedPermissions.toJsonArray())
-        put("nativeAbis", nativeAbis.toJsonArray())
-        put("nativeLibraries", nativeLibraries.toJsonArray())
+        put("activities", activities.toComponentJsonArray())
+        put("services", services.toComponentJsonArray())
+        put("providers", providers.toComponentJsonArray())
+        put("receivers", receivers.toComponentJsonArray())
+        put("requestedPermissions", requestedPermissions.toStringJsonArray())
+        put("nativeAbis", nativeAbis.toStringJsonArray())
+        put("nativeLibraries", nativeLibraries.toStringJsonArray())
     }
 
     private fun JSONObject.toPackageMetadata(): GuestPackageMetadata = GuestPackageMetadata(
@@ -192,18 +192,18 @@ class GuestApkRepository(private val context: Context) {
         nativeLibraries = getJSONArray("nativeLibraries").toStrings(),
     )
 
-    private fun List<GuestComponentMetadata>.toJsonArray(): JSONArray = JSONArray().also { array ->
+    private fun List<GuestComponentMetadata>.toComponentJsonArray(): JSONArray = JSONArray().also { array ->
         forEach { component ->
             array.put(JSONObject().apply {
                 put("name", component.name)
                 put("exported", component.exported)
                 put("permission", component.permission ?: JSONObject.NULL)
-                put("authorities", component.authorities.toJsonArray())
+                put("authorities", component.authorities.toStringJsonArray())
             })
         }
     }
 
-    private fun List<String>.toJsonArray(): JSONArray = JSONArray().also { array ->
+    private fun List<String>.toStringJsonArray(): JSONArray = JSONArray().also { array ->
         forEach(array::put)
     }
 
