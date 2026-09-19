@@ -34,7 +34,7 @@ This file tracks what CA is expected to support and the current implementation s
 
 | Feature | Version target | Status | Notes |
 |---|---:|---|---|
-| Select/import APK | v0.1 | ⏳ NEXT | First real engine feature |
+| Select/import APK | v0.1 | 🧪 NEEDS TEST | Issue #1 implementation pushed; private copy + SHA-256 record + dashboard flow; awaiting CI/runtime acceptance |
 | Parse package name | v0.1 | ⏳ NEXT | |
 | Parse manifest/components | v0.1 | ⏳ NEXT | |
 | Parse requested permissions | v0.1 | ⏳ NEXT | |
