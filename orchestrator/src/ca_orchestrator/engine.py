@@ -3,6 +3,7 @@ from __future__ import annotations
 import json
 from datetime import datetime, timezone
 
+from .action_executor import CiActionExecutor
 from .models import PlannedIssue, ReconcileResult
 from .repair_policy import decide_ci_action
 from .state import StateStore
@@ -26,12 +27,14 @@ class Orchestrator:
         workspaces: WorkspaceManager,
         plan: tuple[PlannedIssue, ...],
         worker=None,
+        action_executor: CiActionExecutor | None = None,
     ):
         self.github = github
         self.state = state
         self.workspaces = workspaces
         self.plan = plan
         self.worker = worker
+        self.action_executor = action_executor
 
     def _dependencies_closed(self, item: PlannedIssue) -> bool:
         return all(self.github.issue(dep).state == "closed" for dep in item.dependencies)
@@ -110,6 +113,44 @@ class Orchestrator:
 
     def reconcile_and_dispatch_once(self) -> ReconcileResult:
         result = self.reconcile_once()
+
+        if (
+            result.state == "CI_RED"
+            and result.issue_number is not None
+            and result.action == "RETRY_INFRASTRUCTURE"
+            and self.action_executor is not None
+        ):
+            ci = self.state.latest_ci_feedback(result.issue_number)
+            if ci is None:
+                return result
+            similar_failures = self.state.failure_count(
+                result.issue_number,
+                f"ci:{ci['classification']}",
+            )
+            decision = decide_ci_action(
+                result_state=str(ci["result_state"]),
+                classification=str(ci["classification"]),
+                similar_failures=similar_failures,
+            )
+            execution = self.action_executor.execute(
+                issue_number=result.issue_number,
+                ci=ci,
+                decision=decision,
+            )
+            _event(
+                "ci_action_execution",
+                issue=result.issue_number,
+                run_id=ci["run_id"],
+                action=execution.action,
+                action_state=execution.state,
+                failure_count=execution.failure_count,
+            )
+            return ReconcileResult(
+                state=f"ACTION_{execution.state}",
+                issue_number=result.issue_number,
+                reason=result.reason,
+                action=execution.action,
+            )
         if (
             self.worker is None
             or result.issue_number is None

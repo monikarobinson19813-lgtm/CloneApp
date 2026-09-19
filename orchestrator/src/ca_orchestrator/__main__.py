@@ -7,6 +7,7 @@ import sys
 import threading
 import time
 
+from .action_executor import CiActionExecutor
 from .ci_feedback import CiFeedbackProcessor
 from .config import load_settings
 from .engine import Orchestrator
@@ -41,12 +42,25 @@ def build_orchestrator(plan_path: str):
             timeout_seconds=settings.codex_timeout_seconds,
         )
 
+    def repair_dispatch_pending(issue_number, ci):
+        raise RuntimeError(
+            f"Repair dispatch for issue #{issue_number} is not wired yet; "
+            "Issue #16 next slice must connect an approved coding worker"
+        )
+
+    action_executor = CiActionExecutor(
+        state,
+        retry_infrastructure=github.rerun_failed_jobs,
+        dispatch_repair=repair_dispatch_pending,
+    )
+
     return settings, state, Orchestrator(
         github,
         state,
         workspaces,
         settings.plan,
         worker=worker,
+        action_executor=action_executor,
     )
 
 
