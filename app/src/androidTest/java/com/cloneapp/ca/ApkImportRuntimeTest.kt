@@ -4,15 +4,19 @@ import android.app.Activity
 import android.app.Instrumentation
 import android.content.Context
 import android.content.Intent
-import android.content.IntentFilter
 import android.net.Uri
 import android.os.SystemClock
 import android.widget.Button
 import android.widget.TextView
+import androidx.test.espresso.intent.Intents
+import androidx.test.espresso.intent.Intents.intended
+import androidx.test.espresso.intent.Intents.intending
+import androidx.test.espresso.intent.matcher.IntentMatchers.hasAction
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.test.platform.app.InstrumentationRegistry
 import com.cloneapp.core.GuestApkRepository
 import com.cloneapp.core.PrototypeInstanceRegistry
+import org.hamcrest.Matchers.allOf
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNotNull
 import org.junit.Assert.assertTrue
@@ -29,16 +33,14 @@ class ApkImportRuntimeTest {
     fun importApkThroughDocumentPickerContract() {
         clearImportedState()
         val activity = launchCloneApp()
-        val monitor = interceptOpenDocument(FixtureApkProvider.validApkUri())
         val registry = PrototypeInstanceRegistry(context)
         val sentinel = registry.create("com.cloneapp.registry-sentinel", "Registry Sentinel")
 
+        Intents.init()
         try {
+            stubOpenDocument(FixtureApkProvider.validApkUri())
             clickImport(activity)
-            assertTrue(
-                "Import button did not launch ACTION_OPEN_DOCUMENT",
-                waitForMonitorHit(monitor)
-            )
+            intended(hasAction(Intent.ACTION_OPEN_DOCUMENT))
 
             val text = waitForTextContaining(activity, R.id.guestArtifactText, SOURCE_APK_NAME)
             assertTrue("Imported APK name missing from diagnostics", text.contains(SOURCE_APK_NAME))
@@ -62,7 +64,7 @@ class ApkImportRuntimeTest {
             )
         } finally {
             registry.delete(sentinel.id)
-            instrumentation.removeMonitor(monitor)
+            Intents.release()
         }
     }
 
@@ -83,14 +85,12 @@ class ApkImportRuntimeTest {
     fun invalidApkShowsVisibleErrorWithoutCrash() {
         clearImportedState()
         val activity = launchCloneApp()
-        val monitor = interceptOpenDocument(FixtureApkProvider.invalidApkUri())
 
+        Intents.init()
         try {
+            stubOpenDocument(FixtureApkProvider.invalidApkUri())
             clickImport(activity)
-            assertTrue(
-                "Import button did not launch ACTION_OPEN_DOCUMENT",
-                waitForMonitorHit(monitor)
-            )
+            intended(hasAction(Intent.ACTION_OPEN_DOCUMENT))
 
             val text = waitForTextContaining(activity, R.id.guestArtifactText, "Import failed:")
             assertTrue(
@@ -107,23 +107,17 @@ class ApkImportRuntimeTest {
                 activity.componentName.className
             )
         } finally {
-            instrumentation.removeMonitor(monitor)
+            Intents.release()
         }
     }
 
-    private fun interceptOpenDocument(uri: Uri): Instrumentation.ActivityMonitor {
+    private fun stubOpenDocument(uri: Uri) {
         val resultIntent = Intent().apply {
             data = uri
             addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
         }
-        val filter = IntentFilter(Intent.ACTION_OPEN_DOCUMENT).apply {
-            addCategory(Intent.CATEGORY_OPENABLE)
-            addDataType("*/*")
-        }
-        return instrumentation.addMonitor(
-            filter,
-            Instrumentation.ActivityResult(Activity.RESULT_OK, resultIntent),
-            true
+        intending(hasAction(Intent.ACTION_OPEN_DOCUMENT)).respondWith(
+            Instrumentation.ActivityResult(Activity.RESULT_OK, resultIntent)
         )
     }
 
@@ -133,17 +127,7 @@ class ApkImportRuntimeTest {
         instrumentation.runOnMainSync {
             importButton.performClick()
         }
-    }
-
-    private fun waitForMonitorHit(monitor: Instrumentation.ActivityMonitor): Boolean {
-        val deadline = SystemClock.uptimeMillis() + CONTRACT_TIMEOUT_MS
-        while (SystemClock.uptimeMillis() < deadline) {
-            if (monitor.hits > 0) {
-                return true
-            }
-            SystemClock.sleep(POLL_INTERVAL_MS)
-        }
-        return monitor.hits > 0
+        instrumentation.waitForIdleSync()
     }
 
     private fun launchCloneApp(): Activity {
@@ -194,7 +178,6 @@ class ApkImportRuntimeTest {
     private companion object {
         const val SOURCE_APK_NAME = "CA-Test-App-debug.apk"
         const val TIMEOUT_MS = 20_000L
-        const val CONTRACT_TIMEOUT_MS = 5_000L
         const val POLL_INTERVAL_MS = 100L
     }
 }
