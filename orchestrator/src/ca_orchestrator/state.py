@@ -70,6 +70,28 @@ class StateStore:
                 );
                 CREATE INDEX IF NOT EXISTS worker_runs_issue_started
                     ON worker_runs(issue_number, started_at DESC);
+                CREATE TABLE IF NOT EXISTS github_deliveries (
+                    delivery_id TEXT PRIMARY KEY,
+                    event_type TEXT NOT NULL,
+                    payload_sha256 TEXT NOT NULL,
+                    received_at TEXT NOT NULL
+                );
+                CREATE TABLE IF NOT EXISTS ci_feedback (
+                    run_id INTEGER PRIMARY KEY,
+                    delivery_id TEXT NOT NULL,
+                    workflow_name TEXT NOT NULL,
+                    issue_number INTEGER,
+                    pr_number INTEGER,
+                    commit_sha TEXT NOT NULL,
+                    head_branch TEXT NOT NULL,
+                    status TEXT NOT NULL,
+                    conclusion TEXT,
+                    result_state TEXT NOT NULL,
+                    classification TEXT NOT NULL,
+                    updated_at TEXT NOT NULL
+                );
+                CREATE INDEX IF NOT EXISTS ci_feedback_issue_updated
+                    ON ci_feedback(issue_number, updated_at DESC);
                 """
             )
 
@@ -235,6 +257,102 @@ class StateStore:
             conn.execute("COMMIT")
             return count
 
+    def has_github_delivery(self, delivery_id: str) -> bool:
+        with self._connection() as conn:
+            row = conn.execute(
+                "SELECT 1 FROM github_deliveries WHERE delivery_id = ?",
+                (delivery_id,),
+            ).fetchone()
+        return row is not None
+
+    def record_github_delivery(
+        self,
+        delivery_id: str,
+        event_type: str,
+        payload_sha256: str,
+    ) -> bool:
+        with self._connection() as conn:
+            cursor = conn.execute(
+                """
+                INSERT OR IGNORE INTO github_deliveries(
+                    delivery_id, event_type, payload_sha256, received_at
+                )
+                VALUES (?, ?, ?, ?)
+                """,
+                (delivery_id, event_type, payload_sha256, _now()),
+            )
+        return cursor.rowcount == 1
+
+    def upsert_ci_feedback(
+        self,
+        *,
+        run_id: int,
+        delivery_id: str,
+        workflow_name: str,
+        issue_number: int | None,
+        pr_number: int | None,
+        commit_sha: str,
+        head_branch: str,
+        status: str,
+        conclusion: str | None,
+        result_state: str,
+        classification: str,
+    ) -> None:
+        with self._connection() as conn:
+            conn.execute(
+                """
+                INSERT INTO ci_feedback(
+                    run_id, delivery_id, workflow_name, issue_number, pr_number,
+                    commit_sha, head_branch, status, conclusion, result_state,
+                    classification, updated_at
+                )
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                ON CONFLICT(run_id) DO UPDATE SET
+                    delivery_id = excluded.delivery_id,
+                    workflow_name = excluded.workflow_name,
+                    issue_number = excluded.issue_number,
+                    pr_number = excluded.pr_number,
+                    commit_sha = excluded.commit_sha,
+                    head_branch = excluded.head_branch,
+                    status = excluded.status,
+                    conclusion = excluded.conclusion,
+                    result_state = excluded.result_state,
+                    classification = excluded.classification,
+                    updated_at = excluded.updated_at
+                """,
+                (
+                    run_id,
+                    delivery_id,
+                    workflow_name,
+                    issue_number,
+                    pr_number,
+                    commit_sha,
+                    head_branch,
+                    status,
+                    conclusion,
+                    result_state,
+                    classification,
+                    _now(),
+                ),
+            )
+
+    def latest_ci_feedback(self, issue_number: int) -> dict | None:
+        with self._connection() as conn:
+            row = conn.execute(
+                """
+                SELECT * FROM ci_feedback
+                WHERE issue_number = ?
+                ORDER BY updated_at DESC
+                LIMIT 1
+                """,
+                (issue_number,),
+            ).fetchone()
+        return dict(row) if row is not None else None
+
+    def has_active_ci(self, issue_number: int) -> bool:
+        latest = self.latest_ci_feedback(issue_number)
+        return latest is not None and latest["result_state"] == "ACTIVE"
+
     def export(self) -> dict:
         with self._connection() as conn:
             claims = [
@@ -255,11 +373,33 @@ class StateStore:
                     "SELECT * FROM worker_runs ORDER BY started_at DESC LIMIT 50"
                 ).fetchall()
             ]
+            github_deliveries = [
+                dict(row)
+                for row in conn.execute(
+                    """
+                    SELECT * FROM github_deliveries
+                    ORDER BY received_at DESC
+                    LIMIT 100
+                    """
+                ).fetchall()
+            ]
+            ci_feedback = [
+                dict(row)
+                for row in conn.execute(
+                    """
+                    SELECT * FROM ci_feedback
+                    ORDER BY updated_at DESC
+                    LIMIT 100
+                    """
+                ).fetchall()
+            ]
         return {
             "concurrency": self.concurrency,
             "claims": claims,
             "failures": failures,
             "worker_runs": worker_runs,
+            "github_deliveries": github_deliveries,
+            "ci_feedback": ci_feedback,
         }
 
     def export_json(self) -> str:
