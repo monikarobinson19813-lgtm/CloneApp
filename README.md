@@ -2,6 +2,19 @@
 
 This repository is the first implementation scaffold for CloneApp.
 
+## Engineering source of truth
+
+Use these files to answer "what are we building?", "where are we now?" and "what is next?":
+
+- [ROADMAP.md](ROADMAP.md) — milestone path from v0.1 to v1.0 and current engineering focus.
+- [FEATURES.md](FEATURES.md) — complete feature inventory with live status.
+- [DECISIONS.md](DECISIONS.md) — architecture/product decisions and why they were made.
+- [COMPATIBILITY_MATRIX.md](COMPATIBILITY_MATRIX.md) — app/device/Android-version test evidence.
+- [ARCHITECTURE.md](ARCHITECTURE.md) — current Virtual Engine architecture.
+- [TEST_PLAN.md](TEST_PLAN.md) — v0.1 isolation and regression criteria.
+
+GitHub is the authoritative engineering record. Notion may be used later for broader research or product notes, but should not duplicate live implementation status.
+
 ## Current status
 
 **NOT YET A WORKING APP VIRTUALIZER.**
