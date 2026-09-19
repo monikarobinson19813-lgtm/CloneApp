@@ -19,7 +19,7 @@ Goal: run the same unmodified CA Test App APK as two independent virtual instanc
 
 ## Current phase
 
-**Engineering Operating System — Phase 1**
+**Engineering Operating System — Phase 2: toward persistent autonomy**
 
 Implemented:
 - bounded GitHub Issues;
@@ -58,10 +58,19 @@ Do not skip ahead merely because a later task looks interesting.
 
 ## Engineering OS support queue
 
-- Issue #10 — Add Android emulator smoke-test lane — **PUSHED** at `51e7fcb99c5b4ace61090dc80b66642dc86bf47f`; acceptance waits for CI/emulator result.
-- Issue #11 — Automate Control Tower build-state monitoring.
+- Issue #10 — Android emulator smoke-test lane — **PUSHED**, awaiting reliable evidence.
+- Issue #11 — Control Tower monitoring — **operational**, but hourly scheduling is transitional.
+- Issue #12 — PR-first autonomous worker delivery.
+- Issue #13 — Persistent Symphony-style orchestrator POC.
+- Issue #14 — Codex worker adapter.
+- Issue #15 — Event-driven CI feedback.
+- Issue #16 — Automatic RED repair / acceptance / next-issue progression.
+- Issue #17 — Engineering observability dashboard.
+- Issue #18 — Firebase Test Lab milestone device matrix.
 
-Issue #11 has begun operationally: an hourly build-state watch is active and should only surface meaningful completed RED/GREEN transitions, not unchanged in-progress noise.
+**North Star:** replace hour-scale scheduled supervision with a persistent, event-driven orchestrator so approved work does not sit idle between CI/test completion and the next bounded engineering action.
+
+See `AUTONOMY_ROADMAP.md` and `AUTONOMY_VENDOR_EVAL.md`.
 
 ## Last accepted build
 
