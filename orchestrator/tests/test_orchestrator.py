@@ -114,6 +114,66 @@ class OrchestratorTests(unittest.TestCase):
             self.assertEqual(1, exported["concurrency"])
             self.assertEqual(3, exported["claims"][0]["issue_number"])
 
+    def test_active_ci_prevents_claim_and_worker_dispatch(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            state = StateStore(root / "state.sqlite3")
+            state.upsert_ci_feedback(
+                run_id=55,
+                delivery_id="delivery-active",
+                workflow_name="Android Build",
+                issue_number=1,
+                pr_number=32,
+                commit_sha="abc123",
+                head_branch="ca/1-apk-import-runtime-acceptance",
+                status="in_progress",
+                conclusion=None,
+                result_state="ACTIVE",
+                classification="WORKFLOW",
+            )
+            orchestrator = Orchestrator(
+                FakeGitHub({1: "open"}),
+                state,
+                WorkspaceManager(root / "workspaces"),
+                (PlannedIssue(1),),
+            )
+
+            result = orchestrator.reconcile_and_dispatch_once()
+
+            self.assertEqual("CI_ACTIVE", result.state)
+            self.assertEqual(1, result.issue_number)
+            self.assertEqual([], state.active_claims())
+
+    def test_red_ci_is_persisted_as_gate_until_repair_policy_handles_it(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            state = StateStore(root / "state.sqlite3")
+            state.upsert_ci_feedback(
+                run_id=54,
+                delivery_id="delivery-red",
+                workflow_name="Android Build",
+                issue_number=1,
+                pr_number=32,
+                commit_sha="abc123",
+                head_branch="ca/1-apk-import-runtime-acceptance",
+                status="completed",
+                conclusion="failure",
+                result_state="RED",
+                classification="EMULATOR",
+            )
+            orchestrator = Orchestrator(
+                FakeGitHub({1: "open"}),
+                state,
+                WorkspaceManager(root / "workspaces"),
+                (PlannedIssue(1),),
+            )
+
+            result = orchestrator.reconcile_once()
+
+            self.assertEqual("CI_RED", result.state)
+            self.assertEqual("EMULATOR", result.reason)
+            self.assertEqual([], state.active_claims())
+
 
 if __name__ == "__main__":
     unittest.main()

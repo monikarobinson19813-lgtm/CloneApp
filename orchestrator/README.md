@@ -15,7 +15,9 @@ This directory contains the persistent control plane for the CloneApp autonomous
 - structured JSON event logs;
 - exponential retry/backoff for transient orchestrator failures;
 - machine-readable status;
-- optional bounded Codex coding-worker dispatch.
+- optional bounded Codex coding-worker dispatch;
+- signed GitHub `workflow_run` webhook ingress with delivery dedupe;
+- persistent CI correlation by issue / PR / commit and build/emulator/infra classification.
 
 ## Codex worker contract
 
@@ -121,3 +123,43 @@ PYTHONPATH=orchestrator/src python -m ca_orchestrator --plan orchestrator/plan.e
 A Dockerfile and example systemd unit are included.
 
 Actual 24x7 deployment still requires selecting/provisioning an always-on host and configuring scoped credentials. A paid hosting decision remains an owner gate; the software should stay portable across Linux VM/container providers.
+
+
+## Event-driven CI feedback
+
+Issue #15 adds a webhook ingress path so CI state can wake the daemon immediately instead of waiting for the next poll interval.
+
+Run the daemon with webhook intake enabled:
+
+```bash
+export GITHUB_TOKEN=...
+export CA_GITHUB_REPO=monikarobinson19813-lgtm/CloneApp
+export CA_GITHUB_WEBHOOK_SECRET='use-a-random-shared-secret'
+
+PYTHONPATH=orchestrator/src python -m ca_orchestrator \
+  --plan orchestrator/plan.example.json \
+  --webhook \
+  --webhook-host 127.0.0.1 \
+  --webhook-port 8787
+```
+
+GitHub webhook endpoint:
+
+```text
+POST /github/webhook
+```
+
+Subscribe to the GitHub `workflow_run` event. The receiver:
+
+- requires and validates `X-Hub-Signature-256`;
+- deduplicates on `X-GitHub-Delivery`;
+- correlates branch convention `ca/<issue>-...` / `eng-os/<issue>-...` to the exact issue;
+- records PR number and head SHA from the workflow event;
+- fetches completed workflow jobs to classify RED as build, emulator, or infrastructure;
+- persists ACTIVE / RED / GREEN state in SQLite;
+- wakes the daemon immediately;
+- gates ordinary issue dispatch while CI is ACTIVE or awaiting RED/GREEN handling.
+
+This issue deliberately does **not** auto-repair RED, auto-accept GREEN, close issues, or start the next issue. Those transitions belong to Engineering OS Issue #16.
+
+The listener defaults to loopback. Exposing it to GitHub requires a secure reachable endpoint and repository webhook configuration. Hosting/provisioning remains a separate deployment decision; no paid infrastructure is introduced by this implementation.
