@@ -19,7 +19,7 @@ class FixtureApkProvider : ContentProvider() {
         selectionArgs: Array<out String>?,
         sortOrder: String?,
     ): Cursor {
-        val columns = projection?.toTypedArray()
+        val columns = projection?.map { it }?.toTypedArray()
             ?: arrayOf(OpenableColumns.DISPLAY_NAME, OpenableColumns.SIZE)
         val cursor = MatrixCursor(columns)
         val file = fileFor(uri)
