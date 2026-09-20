@@ -87,6 +87,14 @@ adb shell am instrument -w -r \
 grep -q '^OK (' ci-artifacts/evidence/storage-isolation-restart-delete-instrumentation.txt
 
 adb shell am force-stop com.cloneapp.testapp || true
+adb shell am instrument -w -r \
+  -e class 'com.cloneapp.testapp.ProviderIsolationRuntimeTest#aliceAndBobProviderStateAreIndependentAndDeleteDoesNotCrossUsers' \
+  com.cloneapp.testapp.test/androidx.test.runner.AndroidJUnitRunner \
+  | tee ci-artifacts/evidence/provider-isolation-instrumentation.txt
+
+grep -q '^OK (' ci-artifacts/evidence/provider-isolation-instrumentation.txt
+
+adb shell am force-stop com.cloneapp.testapp || true
 adb shell am start -W -n com.cloneapp.testapp/.MainActivity
 sleep 2
 adb shell pidof com.cloneapp.testapp > ci-artifacts/evidence/testapp-pid.txt
@@ -98,4 +106,4 @@ adb shell pm path com.cloneapp.testapp > ci-artifacts/evidence/testapp-package-p
 grep -q "package:" ci-artifacts/evidence/cloneapp-package-path.txt
 grep -q "package:" ci-artifacts/evidence/testapp-package-path.txt
 
-echo "CloneApp emulator smoke + import + metadata + virtual registry + stub process + controlled guest activity launch + private storage isolation acceptance PASS" | tee ci-artifacts/evidence/result.txt
+echo "CloneApp emulator smoke + import + metadata + virtual registry + stub process + controlled guest activity launch + private storage isolation + controlled provider isolation acceptance PASS" | tee ci-artifacts/evidence/result.txt
