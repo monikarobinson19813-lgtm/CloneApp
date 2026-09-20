@@ -141,6 +141,13 @@ class MainActivity : AppCompatActivity() {
                     appendLine("  size=${artifact.sizeBytes} bytes")
                     appendLine("  sha256=${artifact.sha256}")
                     appendLine("  stored=${artifact.storedPath}")
+                    artifact.packageMetadata?.let { metadata ->
+                        appendLine("  package=${metadata.packageName}")
+                        appendLine("  version=${metadata.versionName ?: "?"} (${metadata.versionCode})")
+                        appendLine("  launcher=${metadata.launcherActivity ?: "unknown"}")
+                        appendLine("  activities=${metadata.activities.size}")
+                        appendLine("  permissions=${metadata.requestedPermissions.joinToString()}")
+                    }
                 }
             }
         }

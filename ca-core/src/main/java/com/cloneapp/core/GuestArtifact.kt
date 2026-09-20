@@ -7,5 +7,6 @@ data class GuestArtifact(
     val storedPath: String,
     val sizeBytes: Long,
     val sha256: String,
-    val importedAtEpochMs: Long
+    val importedAtEpochMs: Long,
+    val packageMetadata: GuestPackageMetadata? = null,
 )

@@ -40,6 +40,14 @@ adb shell am instrument -w -r   -e class 'com.cloneapp.ca.ApkImportRuntimeTest#i
 grep -q '^OK (' ci-artifacts/evidence/apk-import-relaunch-instrumentation.txt
 adb exec-out screencap -p > ci-artifacts/evidence/apk-import-after-relaunch.png || true
 
+adb shell am instrument -w -r   -e class 'com.cloneapp.ca.ApkImportRuntimeTest#importedApkMetadataMatchesFixtureAndSurvivesRestart'   com.cloneapp.ca.test/androidx.test.runner.AndroidJUnitRunner   | tee ci-artifacts/evidence/apk-metadata-instrumentation.txt
+
+grep -q '^OK (' ci-artifacts/evidence/apk-metadata-instrumentation.txt
+
+adb shell am instrument -w -r   -e class 'com.cloneapp.ca.ApkImportRuntimeTest#metadataParseFailureIsExplicitAndNonCrashing'   com.cloneapp.ca.test/androidx.test.runner.AndroidJUnitRunner   | tee ci-artifacts/evidence/apk-metadata-failure-instrumentation.txt
+
+grep -q '^OK (' ci-artifacts/evidence/apk-metadata-failure-instrumentation.txt
+
 adb shell am instrument -w -r   -e class 'com.cloneapp.ca.ApkImportRuntimeTest#invalidApkShowsVisibleErrorWithoutCrash'   com.cloneapp.ca.test/androidx.test.runner.AndroidJUnitRunner   | tee ci-artifacts/evidence/apk-import-invalid-instrumentation.txt
 
 grep -q '^OK (' ci-artifacts/evidence/apk-import-invalid-instrumentation.txt
@@ -56,4 +64,4 @@ adb shell pm path com.cloneapp.testapp > ci-artifacts/evidence/testapp-package-p
 grep -q "package:" ci-artifacts/evidence/cloneapp-package-path.txt
 grep -q "package:" ci-artifacts/evidence/testapp-package-path.txt
 
-echo "CloneApp emulator smoke + APK import/persistence/error acceptance PASS" | tee ci-artifacts/evidence/result.txt
+echo "CloneApp emulator smoke + APK import/persistence/error + package metadata acceptance PASS" | tee ci-artifacts/evidence/result.txt
