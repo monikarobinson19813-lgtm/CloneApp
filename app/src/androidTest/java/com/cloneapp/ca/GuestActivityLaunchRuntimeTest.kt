@@ -5,6 +5,7 @@ import android.os.SystemClock
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.test.platform.app.InstrumentationRegistry
 import androidx.test.uiautomator.UiDevice
+import com.cloneapp.core.GuestApkRepository
 import com.cloneapp.core.PrototypeInstanceRegistry
 import com.cloneapp.core.VirtualInstance
 import org.junit.Assert.assertEquals
@@ -25,6 +26,7 @@ class GuestActivityLaunchRuntimeTest {
     @Test
     fun aliceAndBobLaunchSameImportedGuestWithDistinctVirtualIdentity() {
         clearLaunchState()
+        ensureImportedGuest()
         val registry = PrototypeInstanceRegistry(context)
         registry.list().forEach { registry.delete(it.id) }
 
@@ -79,6 +81,24 @@ class GuestActivityLaunchRuntimeTest {
         )
 
         device.pressBack()
+    }
+
+    private fun ensureImportedGuest() {
+        val repository = GuestApkRepository(context)
+        if (repository.list().any { it.packageMetadata?.packageName == "com.cloneapp.testapp" }) {
+            return
+        }
+
+        val result = repository.importFrom(DebugFixtureApkProvider.validApkUri())
+        assertTrue(
+            "Controlled CA Test App fixture must import before guest launch acceptance: " +
+                result.exceptionOrNull()?.message.orEmpty(),
+            result.isSuccess,
+        )
+        assertEquals(
+            "com.cloneapp.testapp",
+            result.getOrThrow().packageMetadata?.packageName,
+        )
     }
 
     private fun launchAndAwait(
