@@ -12,7 +12,6 @@ import com.cloneapp.core.PrototypeInstanceRegistry
 import com.cloneapp.core.VirtualInstance
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNotEquals
-import org.junit.Assert.assertNotNull
 import org.junit.Assert.assertTrue
 import org.junit.Test
 import org.junit.runner.RunWith
@@ -74,7 +73,9 @@ class GuestActivityLaunchRuntimeTest {
             virtualUserId = 999,
             createdAtEpochMs = System.currentTimeMillis(),
         )
-        val failure = launchResult(coordinator, unsupported)
+        var unsupportedResult: Result<GuestLaunchResult>? = null
+        coordinator.launch(unsupported) { unsupportedResult = it }
+        val failure = requireNotNull(unsupportedResult)
         assertTrue("Unsupported launch path must fail explicitly", failure.isFailure)
         assertTrue(
             failure.exceptionOrNull()?.message.orEmpty()
