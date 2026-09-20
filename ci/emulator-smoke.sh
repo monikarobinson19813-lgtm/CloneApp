@@ -52,6 +52,10 @@ adb shell am instrument -w -r   -e class 'com.cloneapp.ca.ApkImportRuntimeTest#i
 
 grep -q '^OK (' ci-artifacts/evidence/apk-import-invalid-instrumentation.txt
 
+adb shell am instrument -w -r   -e class 'com.cloneapp.ca.VirtualPackageRegistryRuntimeTest#aliceAndBobShareBasePackageButKeepSeparateVirtualInstances'   com.cloneapp.ca.test/androidx.test.runner.AndroidJUnitRunner   | tee ci-artifacts/evidence/virtual-package-registry-instrumentation.txt
+
+grep -q '^OK (' ci-artifacts/evidence/virtual-package-registry-instrumentation.txt
+
 adb shell am force-stop com.cloneapp.testapp || true
 adb shell am start -W -n com.cloneapp.testapp/.MainActivity
 sleep 2
@@ -64,4 +68,4 @@ adb shell pm path com.cloneapp.testapp > ci-artifacts/evidence/testapp-package-p
 grep -q "package:" ci-artifacts/evidence/cloneapp-package-path.txt
 grep -q "package:" ci-artifacts/evidence/testapp-package-path.txt
 
-echo "CloneApp emulator smoke + APK import/persistence/error + package metadata acceptance PASS" | tee ci-artifacts/evidence/result.txt
+echo "CloneApp emulator smoke + APK import/persistence/error + package metadata + virtual package registry acceptance PASS" | tee ci-artifacts/evidence/result.txt
