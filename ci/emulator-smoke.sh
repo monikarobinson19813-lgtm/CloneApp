@@ -8,6 +8,7 @@ capture_evidence() {
   adb shell dumpsys activity activities > ci-artifacts/evidence/dumpsys-activity.txt || true
   adb shell dumpsys package com.cloneapp.ca > ci-artifacts/evidence/package-cloneapp.txt || true
   adb shell dumpsys package com.cloneapp.testapp > ci-artifacts/evidence/package-testapp.txt || true
+  adb shell dumpsys notification --noredact > ci-artifacts/evidence/dumpsys-notification.txt || true
 }
 trap capture_evidence EXIT
 
@@ -94,6 +95,15 @@ adb shell am instrument -w -r \
 
 grep -q '^OK (' ci-artifacts/evidence/provider-isolation-instrumentation.txt
 
+adb shell am force-stop com.cloneapp.ca || true
+adb shell am instrument -w -r \
+  -e class 'com.cloneapp.ca.NotificationTranslationRuntimeTest#aliceAndBobPostIndependentlyWithVisibleInstanceIdentityAndLifecycle' \
+  com.cloneapp.ca.test/androidx.test.runner.AndroidJUnitRunner \
+  | tee ci-artifacts/evidence/notification-translation-instrumentation.txt
+
+grep -q '^OK (' ci-artifacts/evidence/notification-translation-instrumentation.txt
+adb shell dumpsys notification --noredact > ci-artifacts/evidence/notification-translation-dumpsys.txt || true
+
 adb shell am force-stop com.cloneapp.testapp || true
 adb shell am start -W -n com.cloneapp.testapp/.MainActivity
 sleep 2
@@ -106,4 +116,4 @@ adb shell pm path com.cloneapp.testapp > ci-artifacts/evidence/testapp-package-p
 grep -q "package:" ci-artifacts/evidence/cloneapp-package-path.txt
 grep -q "package:" ci-artifacts/evidence/testapp-package-path.txt
 
-echo "CloneApp emulator smoke + import + metadata + virtual registry + stub process + controlled guest activity launch + private storage isolation + controlled provider isolation acceptance PASS" | tee ci-artifacts/evidence/result.txt
+echo "CloneApp emulator smoke + import + metadata + virtual registry + stub process + controlled guest activity launch + private storage isolation + controlled provider isolation + notification translation acceptance PASS" | tee ci-artifacts/evidence/result.txt
