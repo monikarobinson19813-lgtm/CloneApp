@@ -62,8 +62,6 @@ grep -q '^OK (' ci-artifacts/evidence/guest-process-host-instrumentation.txt
 adb shell dumpsys activity services com.cloneapp.ca > ci-artifacts/evidence/guest-stub-services.txt || true
 
 adb shell am force-stop com.cloneapp.ca || true
-adb shell am start -W -n com.cloneapp.ca/.MainActivity
-sleep 1
 
 adb shell am instrument -w -r   -e class 'com.cloneapp.ca.GuestActivityLaunchRuntimeTest#aliceAndBobLaunchSameImportedGuestWithDistinctVirtualIdentity'   com.cloneapp.ca.test/androidx.test.runner.AndroidJUnitRunner   | tee ci-artifacts/evidence/guest-activity-launch-instrumentation.txt
 

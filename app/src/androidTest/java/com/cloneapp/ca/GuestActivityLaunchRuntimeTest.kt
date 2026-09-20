@@ -2,6 +2,8 @@ package com.cloneapp.ca
 
 import android.content.Context
 import android.os.SystemClock
+import androidx.lifecycle.Lifecycle
+import androidx.test.core.app.ActivityScenario
 import androidx.test.espresso.Espresso.onView
 import androidx.test.espresso.action.ViewActions.click
 import androidx.test.espresso.action.ViewActions.scrollTo
@@ -33,60 +35,65 @@ class GuestActivityLaunchRuntimeTest {
         val registry = PrototypeInstanceRegistry(context)
         registry.list().forEach { registry.delete(it.id) }
 
-        startCloneApp()
-        val coordinator = GuestLaunchCoordinator(context)
+        val scenario = ActivityScenario.launch(MainActivity::class.java)
+        try {
+            val coordinator = GuestLaunchCoordinator(context)
 
-        tapLaunchButton(R.id.launchAlice)
-        waitForForegroundPackage("com.cloneapp.testapp")
-        val alice = registry.list().single { it.displayName == "Alice" }
-        val aliceLaunch = waitForPersistedLaunch(coordinator, "Alice")
-        assertEquals("Alice", aliceLaunch.instanceName)
-        assertEquals(alice.virtualUserId, aliceLaunch.virtualUserId)
+            tapLaunchButton(R.id.launchAlice)
+            waitForForegroundPackage("com.cloneapp.testapp")
+            val alice = registry.list().single { it.displayName == "Alice" }
+            val aliceLaunch = waitForPersistedLaunch(coordinator, "Alice")
+            assertEquals("Alice", aliceLaunch.instanceName)
+            assertEquals(alice.virtualUserId, aliceLaunch.virtualUserId)
 
-        device.pressBack()
-        waitForCloneAppUi()
+            device.pressBack()
+            scenario.moveToState(Lifecycle.State.RESUMED)
 
-        tapLaunchButton(R.id.launchBob)
-        waitForForegroundPackage("com.cloneapp.testapp")
-        val bob = registry.list().single { it.displayName == "Bob" }
-        val bobLaunch = waitForPersistedLaunch(coordinator, "Bob")
-        assertEquals("Bob", bobLaunch.instanceName)
-        assertEquals(bob.virtualUserId, bobLaunch.virtualUserId)
+            tapLaunchButton(R.id.launchBob)
+            waitForForegroundPackage("com.cloneapp.testapp")
+            val bob = registry.list().single { it.displayName == "Bob" }
+            val bobLaunch = waitForPersistedLaunch(coordinator, "Bob")
+            assertEquals("Bob", bobLaunch.instanceName)
+            assertEquals(bob.virtualUserId, bobLaunch.virtualUserId)
 
-        assertNotEquals(
-            "Alice and Bob must keep distinct CA virtual-user IDs",
-            aliceLaunch.virtualUserId,
-            bobLaunch.virtualUserId,
-        )
-        assertEquals(
-            "Both virtual users must launch from the same imported artifact",
-            aliceLaunch.sourceArtifactId,
-            bobLaunch.sourceArtifactId,
-        )
-        assertEquals(aliceLaunch.sourceSha256, bobLaunch.sourceSha256)
-        assertEquals("com.cloneapp.testapp", aliceLaunch.packageName)
-        assertEquals(
-            "com.cloneapp.testapp.MainActivity",
-            aliceLaunch.launcherActivity,
-        )
+            assertNotEquals(
+                "Alice and Bob must keep distinct CA virtual-user IDs",
+                aliceLaunch.virtualUserId,
+                bobLaunch.virtualUserId,
+            )
+            assertEquals(
+                "Both virtual users must launch from the same imported artifact",
+                aliceLaunch.sourceArtifactId,
+                bobLaunch.sourceArtifactId,
+            )
+            assertEquals(aliceLaunch.sourceSha256, bobLaunch.sourceSha256)
+            assertEquals("com.cloneapp.testapp", aliceLaunch.packageName)
+            assertEquals(
+                "com.cloneapp.testapp.MainActivity",
+                aliceLaunch.launcherActivity,
+            )
 
-        val unsupported = VirtualInstance(
-            id = "unsupported",
-            basePackageName = "com.cloneapp.notimported",
-            displayName = "Unsupported",
-            virtualUserId = 999,
-            createdAtEpochMs = System.currentTimeMillis(),
-        )
-        var unsupportedResult: Result<GuestLaunchResult>? = null
-        coordinator.launch(unsupported) { unsupportedResult = it }
-        val failure = requireNotNull(unsupportedResult)
-        assertTrue("Unsupported launch path must fail explicitly", failure.isFailure)
-        assertTrue(
-            failure.exceptionOrNull()?.message.orEmpty()
-                .contains("No imported APK metadata"),
-        )
+            val unsupported = VirtualInstance(
+                id = "unsupported",
+                basePackageName = "com.cloneapp.notimported",
+                displayName = "Unsupported",
+                virtualUserId = 999,
+                createdAtEpochMs = System.currentTimeMillis(),
+            )
+            var unsupportedResult: Result<GuestLaunchResult>? = null
+            coordinator.launch(unsupported) { unsupportedResult = it }
+            val failure = requireNotNull(unsupportedResult)
+            assertTrue("Unsupported launch path must fail explicitly", failure.isFailure)
+            assertTrue(
+                failure.exceptionOrNull()?.message.orEmpty()
+                    .contains("No imported APK metadata"),
+            )
 
-        device.pressBack()
+            device.pressBack()
+            scenario.moveToState(Lifecycle.State.RESUMED)
+        } finally {
+            scenario.close()
+        }
     }
 
     private fun ensureImportedGuest() {
@@ -105,27 +112,6 @@ class GuestActivityLaunchRuntimeTest {
             "com.cloneapp.testapp",
             result.getOrThrow().packageMetadata?.packageName,
         )
-    }
-
-    private fun startCloneApp() {
-        device.executeShellCommand("am start -W -n com.cloneapp.ca/.MainActivity")
-        waitForCloneAppUi()
-    }
-
-    private fun waitForCloneAppUi() {
-        val visible = device.wait(
-            Until.hasObject(By.res("com.cloneapp.ca", "statusText")),
-            CLONE_APP_UI_TIMEOUT_MS,
-        )
-        if (!visible) {
-            val activityState = device.executeShellCommand(
-                "dumpsys activity activities | grep -E 'topResumedActivity|ResumedActivity|mFocusedApp'"
-            )
-            throw AssertionError(
-                "CloneApp status UI did not appear within $CLONE_APP_UI_TIMEOUT_MS ms. " +
-                    "Activity state:\n$activityState"
-            )
-        }
     }
 
     private fun tapLaunchButton(resourceId: Int) {
@@ -162,7 +148,6 @@ class GuestActivityLaunchRuntimeTest {
 
     companion object {
         private const val PACKAGE_APPEAR_TIMEOUT_MS = 8_000L
-        private const val CLONE_APP_UI_TIMEOUT_MS = 8_000L
     }
 
     private fun clearLaunchState() {
