@@ -11,6 +11,7 @@ import java.util.concurrent.Executors
 import com.cloneapp.core.GuestApkRepository
 import com.cloneapp.core.InstanceStorage
 import com.cloneapp.core.PrototypeInstanceRegistry
+import com.cloneapp.core.VirtualInstance
 
 class MainActivity : AppCompatActivity() {
     private lateinit var registry: PrototypeInstanceRegistry
@@ -18,6 +19,8 @@ class MainActivity : AppCompatActivity() {
     private lateinit var guestApks: GuestApkRepository
     private lateinit var instancesText: TextView
     private lateinit var guestArtifactText: TextView
+    private lateinit var guestLauncher: GuestLaunchCoordinator
+    private lateinit var launchDiagnosticsText: TextView
     private var importStatus: String? = null
     private val importExecutor: ExecutorService = Executors.newSingleThreadExecutor()
 
@@ -36,8 +39,10 @@ class MainActivity : AppCompatActivity() {
         registry = PrototypeInstanceRegistry(this)
         storage = InstanceStorage(filesDir.resolve("virtual"))
         guestApks = GuestApkRepository(this)
+        guestLauncher = GuestLaunchCoordinator(this)
         instancesText = findViewById(R.id.instancesText)
         guestArtifactText = findViewById(R.id.guestArtifactText)
+        launchDiagnosticsText = findViewById(R.id.launchDiagnosticsText)
 
         findViewById<Button>(R.id.importApk).setOnClickListener {
             apkPickerLauncher(APK_MIME_TYPES.copyOf())
@@ -48,6 +53,12 @@ class MainActivity : AppCompatActivity() {
         }
         findViewById<Button>(R.id.createBob).setOnClickListener {
             createIfMissing("Bob")
+        }
+        findViewById<Button>(R.id.launchAlice).setOnClickListener {
+            launchGuest("Alice")
+        }
+        findViewById<Button>(R.id.launchBob).setOnClickListener {
+            launchGuest("Bob")
         }
         render()
     }
@@ -85,12 +96,45 @@ class MainActivity : AppCompatActivity() {
         super.onDestroy()
     }
 
-    private fun createIfMissing(name: String) {
-        if (registry.list().none { it.displayName == name }) {
-            val instance = registry.create("com.cloneapp.testapp", name)
-            storage.rootFor(instance)
+    private fun createIfMissing(name: String): VirtualInstance {
+        val existing = registry.list().firstOrNull { it.displayName == name }
+        if (existing != null) {
+            render()
+            return existing
         }
+
+        val instance = registry.create("com.cloneapp.testapp", name)
+        storage.rootFor(instance)
         render()
+        return instance
+    }
+
+    private fun launchGuest(name: String) {
+        val instance = createIfMissing(name)
+        launchDiagnosticsText.text =
+            "Guest launch: starting ${instance.displayName} (vUser=${instance.virtualUserId})"
+
+        guestLauncher.launch(instance) { result ->
+            runOnUiThread {
+                launchDiagnosticsText.text = result.fold(
+                    onSuccess = { launch ->
+                        buildString {
+                            appendLine("Guest launch: ACTIVE")
+                            appendLine("instance=${launch.instanceName}")
+                            appendLine("vUser=${launch.virtualUserId}")
+                            appendLine("package=${launch.packageName}")
+                            appendLine("launcher=${launch.launcherActivity}")
+                            appendLine("source=${launch.sourceSha256}")
+                            appendLine("stubPid=${launch.stubPid}")
+                            append("realUid=${launch.realUid}")
+                        }
+                    },
+                    onFailure = { error ->
+                        "Guest launch failed: ${error.message ?: error::class.java.simpleName}"
+                    },
+                )
+            }
+        }
     }
 
     private fun render() {
