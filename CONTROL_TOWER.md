@@ -1,6 +1,6 @@
 # CloneApp Control Tower
 
-_Last reconciled: 2026-09-19_
+_Last reconciled: 2026-09-20_
 
 This file is the first file every CloneApp engineering/control agent should read.
 
@@ -21,41 +21,51 @@ Target:
 
 ## Current overall state
 
-**PRODUCT: TESTING / FIX_REQUIRED**  
+**PRODUCT: READY — ISSUE #3**  
 **ENGINEERING OS: ADVANCED FOUNDATION BUILT; FULL CLOSED-LOOP AUTONOMY NOT YET COMPLETE**
 
 ## Current product task
 
-**Issue #1 — Import one guest APK into CloneApp**
+**Issue #3 — Build Virtual Package Registry for imported guests**
 
-Implementation exists and compiles.
+State: **CURRENT / READY**
 
-Current runtime-acceptance PR:
-- PR #32 — `ca/1-apk-import-runtime-acceptance`
-- Android Build #54
-- Build/unit/artifact stage: **GREEN**
-- Android 16 emulator boot: **GREEN**
-- CloneApp/Test App/test APK installation: **GREEN**
-- Runtime instrumentation: **RED**
+Dependencies:
+- Issue #1 — accepted/closed;
+- Issue #2 — accepted/closed and merged to `main`.
 
-Failure:
-> CA Test App APK was not visible in Android document picker.
+Latest product evidence:
+- PR #43 merged to `main`;
+- Android Build #94 on the validated PR head: GREEN, including Android 16 emulator runtime evidence;
+- Android Build #95 on `main`: GREEN;
+- no active/queued Android run;
+- no open pull request.
 
-Current classification:
-**TEST-HARNESS / FIXTURE FAILURE until proven otherwise.**
-The failure occurs in the automated picker fixture/discovery path; it is not yet evidence that the core GuestApkRepository import implementation is broken.
+Issue #3 bounded scope:
+- register imported package metadata;
+- query package by name;
+- query launcher activity/component list;
+- bind package record to CA virtual users/instances;
+- deterministic persistence;
+- clean delete/unregister semantics.
+
+Out of scope for Issue #3:
+- ActivityManager interception;
+- process hosting;
+- guest execution;
+- Android PackageManager spoofing.
 
 Next bounded action:
-- repair the emulator document-picker fixture/selection path on PR #32;
-- rerun Build #54-equivalent;
-- accept Issue #1 only after import + persistence runtime evidence is GREEN;
-- do not start Issue #2 before Issue #1 acceptance.
+- dispatch/implement Issue #3 on an issue-specific branch;
+- add/update tests where practical;
+- push one coherent patch and open/update its PR;
+- stop and await required CI/runtime evidence.
 
 ## Product queue
 
-1. Issue #1 — Guest APK import — **TESTING / FIX_REQUIRED**
-2. Issue #2 — Parse guest package/manifest/components — WAITING
-3. Issue #3 — Virtual package registry — WAITING
+1. Issue #1 — Guest APK import — **ACCEPTED / CLOSED**
+2. Issue #2 — Parse guest package/manifest/components — **ACCEPTED / CLOSED**
+3. Issue #3 — Virtual package registry — **CURRENT / READY**
 4. Issue #4 — Stub guest process host — WAITING
 5. Issue #5 — Guest activity launch path — WAITING
 6. Issue #6 — Per-instance filesystem/IO isolation — WAITING
@@ -65,60 +75,9 @@ Next bounded action:
 
 ## Engineering OS status
 
-Completed:
-- Issue #12 — PR-first autonomous worker delivery.
-- Issue #13 — persistent Symphony-style orchestrator POC.
-- Issue #14 — Codex worker adapter.
-- Issue #17 — autonomous engineering observability/control room.
-- Issue #24 — Slack Router for autonomous agent communication.
-- Issue #25 — multi-model agent provider gateway.
-- Issue #26 — GitHub event routing to Slack/agents.
-- Issue #27 — department-agent registry and channel factory.
+Completed foundation includes PR-first worker delivery, persistent orchestration, Codex worker adapter, observability/control room, Slack routing/status, multi-model provider gateway, GitHub event routing, and department-agent registry/channel factory.
 
-Operational evidence:
-- Engineering Control Room workflow is running successfully.
-- Slack 5-Minute Status workflow is running successfully.
-- Latest main commit: `84684a5d67d70dd73579a9c403e2a7f5f575eb1e` — multi-model agent provider gateway.
-
-Still open / not fully closed:
-- Issue #10 — Android emulator smoke-test lane.
-- Issue #11 — Control Tower build-state monitoring.
-- Issue #15 — event-driven CI feedback into orchestrator.
-- Issue #16 — automatic RED repair / acceptance / next-issue progression.
-- Issue #18 — Firebase Test Lab milestone device matrix.
-
-## Autonomy assessment
-
-We are no longer chat-only or repository-only.
-
-Current capabilities include:
-- GitHub source of truth;
-- bounded issue/branch/PR workflow;
-- automated Android CI;
-- Android emulator lane;
-- persistent orchestrator code;
-- coding-agent adapter;
-- multi-model provider gateway;
-- department/agent registry;
-- Slack routing/status;
-- live Engineering Control Room.
-
-The remaining critical autonomy gap is the **closed loop**:
-
-```text
-CI/test result
-  ↓
-event reaches orchestrator immediately
-  ↓
-RED → classified bounded repair worker
-GREEN → acceptance evaluation
-  ↓
-issue close / tracking update
-  ↓
-next dependency-satisfied issue automatically dispatched
-```
-
-Issues #15 and #16 own this gap.
+The remaining Engineering OS work is tracked in its open issues and must not displace the ordered product queue unless its issue is explicitly made current.
 
 ## Owner-facing Control Room
 
@@ -134,11 +93,7 @@ It should remain owner-facing and reconstruct:
 
 ## Current blockers
 
-Product:
-- emulator test fixture cannot currently discover the pushed APK in Android DocumentsUI.
-
-Engineering OS:
-- closed-loop event-driven repair/progression (#15/#16) is not yet fully complete.
+Product: **NONE for Issue #3 dispatch.**
 
 ## Owner decision required?
 
