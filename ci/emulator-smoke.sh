@@ -61,6 +61,15 @@ adb shell am instrument -w -r   -e class 'com.cloneapp.ca.GuestProcessHostRuntim
 grep -q '^OK (' ci-artifacts/evidence/guest-process-host-instrumentation.txt
 adb shell dumpsys activity services com.cloneapp.ca > ci-artifacts/evidence/guest-stub-services.txt || true
 
+adb shell am force-stop com.cloneapp.ca || true
+adb shell am start -W -n com.cloneapp.ca/.MainActivity
+sleep 1
+
+adb shell am instrument -w -r   -e class 'com.cloneapp.ca.GuestActivityLaunchRuntimeTest#aliceAndBobLaunchSameImportedGuestWithDistinctVirtualIdentity'   com.cloneapp.ca.test/androidx.test.runner.AndroidJUnitRunner   | tee ci-artifacts/evidence/guest-activity-launch-instrumentation.txt
+
+grep -q '^OK (' ci-artifacts/evidence/guest-activity-launch-instrumentation.txt
+adb shell dumpsys activity activities > ci-artifacts/evidence/guest-activity-launch-activities.txt || true
+
 adb shell am force-stop com.cloneapp.testapp || true
 adb shell am start -W -n com.cloneapp.testapp/.MainActivity
 sleep 2
@@ -73,4 +82,4 @@ adb shell pm path com.cloneapp.testapp > ci-artifacts/evidence/testapp-package-p
 grep -q "package:" ci-artifacts/evidence/cloneapp-package-path.txt
 grep -q "package:" ci-artifacts/evidence/testapp-package-path.txt
 
-echo "CloneApp emulator smoke + import + metadata + virtual registry + guest stub process acceptance PASS" | tee ci-artifacts/evidence/result.txt
+echo "CloneApp emulator smoke + import + metadata + virtual registry + stub process + controlled guest activity launch acceptance PASS" | tee ci-artifacts/evidence/result.txt
