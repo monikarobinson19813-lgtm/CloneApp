@@ -23,8 +23,17 @@ class MainActivity : AppCompatActivity() {
     private lateinit var counterText: TextView
     private lateinit var diagnostics: TextView
     private var counter = 0
-    private val prefs by lazy { getSharedPreferences("test_state", Context.MODE_PRIVATE) }
-    private val db by lazy { TestDb(this) }
+
+    private val storageContext by lazy {
+        VirtualStorageContext(
+            this,
+            intent.getIntExtra(EXTRA_CA_VIRTUAL_USER_ID, -1),
+        )
+    }
+    private val prefs by lazy {
+        storageContext.getSharedPreferences("test_state", Context.MODE_PRIVATE)
+    }
+    private val db by lazy { TestDb(storageContext) }
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -49,8 +58,8 @@ class MainActivity : AppCompatActivity() {
     private fun saveAll() {
         val name = username.text.toString()
         prefs.edit().putString("username", name).putInt("counter", counter).apply()
-        File(filesDir, "state.txt").writeText("$name|$counter")
-        File(cacheDir, "cache-marker.txt").writeText("$name|$counter")
+        File(storageContext.filesDir, "state.txt").writeText("$name|$counter")
+        File(storageContext.cacheDir, "cache-marker.txt").writeText("$name|$counter")
         db.save(name, counter)
         render()
     }
@@ -61,9 +70,11 @@ class MainActivity : AppCompatActivity() {
             appendLine("package=$packageName")
             appendLine("uid=${Process.myUid()}")
             appendLine("pid=${Process.myPid()}")
-            appendLine("files=${filesDir.absolutePath}")
-            appendLine("cache=${cacheDir.absolutePath}")
-            appendLine("db=${getDatabasePath("ca_test.db").absolutePath}")
+            appendLine("vUser=${intent.getIntExtra(EXTRA_CA_VIRTUAL_USER_ID, -1)}")
+            appendLine("virtualStorage=${storageContext.isVirtualized}")
+            appendLine("files=${storageContext.filesDir.absolutePath}")
+            appendLine("cache=${storageContext.cacheDir.absolutePath}")
+            appendLine("db=${storageContext.getDatabasePath("ca_test.db").absolutePath}")
         }
     }
 
@@ -82,6 +93,10 @@ class MainActivity : AppCompatActivity() {
         } else if (android.os.Build.VERSION.SDK_INT >= 33) {
             requestPermissions(arrayOf(Manifest.permission.POST_NOTIFICATIONS), 42)
         }
+    }
+
+    companion object {
+        private const val EXTRA_CA_VIRTUAL_USER_ID = "ca.virtualUserId"
     }
 }
 
