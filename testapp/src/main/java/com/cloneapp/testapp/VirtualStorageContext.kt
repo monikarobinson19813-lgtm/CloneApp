@@ -54,6 +54,28 @@ class VirtualStorageContext(
             }
         }
 
+    override fun deleteSharedPreferences(name: String): Boolean =
+        if (!isVirtualized) {
+            super.deleteSharedPreferences(name)
+        } else {
+            super.deleteSharedPreferences(sharedPreferencesName(name))
+        }
+
+    override fun deleteDatabase(name: String): Boolean {
+        if (!isVirtualized) {
+            return super.deleteDatabase(name)
+        }
+
+        val database = getDatabasePath(name)
+        val sidecars = listOf(
+            database,
+            File(database.path + "-journal"),
+            File(database.path + "-shm"),
+            File(database.path + "-wal"),
+        )
+        return sidecars.all { file -> !file.exists() || file.delete() }
+    }
+
     fun sharedPreferencesName(name: String): String =
         if (!isVirtualized) name else "ca_virtual_u${virtualUserId}__$name"
 }
