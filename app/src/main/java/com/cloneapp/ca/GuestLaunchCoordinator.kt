@@ -101,7 +101,7 @@ class GuestLaunchCoordinator(context: Context) {
                     }
 
                     val launchIntent = Intent(Intent.ACTION_MAIN).apply {
-                        component = ComponentName(metadata.packageName, launcher.name)
+                        this.component = component
                         addCategory(Intent.CATEGORY_LAUNCHER)
                         addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
                         putExtra(EXTRA_CA_INSTANCE_NAME, instance.displayName)
