@@ -3,11 +3,8 @@ package com.cloneapp.testapp
 import android.Manifest
 import android.app.NotificationChannel
 import android.app.NotificationManager
-import android.content.ContentValues
 import android.content.Context
 import android.content.pm.PackageManager
-import android.database.sqlite.SQLiteDatabase
-import android.database.sqlite.SQLiteOpenHelper
 import android.os.Bundle
 import android.os.Process
 import android.widget.Button
@@ -16,15 +13,20 @@ import android.widget.TextView
 import androidx.appcompat.app.AppCompatActivity
 import androidx.core.app.ActivityCompat
 import androidx.core.app.NotificationCompat
-import java.io.File
 
 class MainActivity : AppCompatActivity() {
     private lateinit var username: EditText
     private lateinit var counterText: TextView
     private lateinit var diagnostics: TextView
     private var counter = 0
-    private val prefs by lazy { getSharedPreferences("test_state", Context.MODE_PRIVATE) }
-    private val db by lazy { TestDb(this) }
+
+    private val storageContext by lazy {
+        VirtualStorageContext(
+            this,
+            intent.getIntExtra(EXTRA_CA_VIRTUAL_USER_ID, -1),
+        )
+    }
+    private val store by lazy { StorageStateStore(storageContext) }
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -34,8 +36,9 @@ class MainActivity : AppCompatActivity() {
         counterText = findViewById(R.id.counter)
         diagnostics = findViewById(R.id.diagnostics)
 
-        username.setText(prefs.getString("username", ""))
-        counter = prefs.getInt("counter", 0)
+        val initialState = store.snapshot()
+        username.setText(initialState.prefsUsername)
+        counter = initialState.prefsCounter
         render()
 
         findViewById<Button>(R.id.increment).setOnClickListener {
@@ -48,10 +51,7 @@ class MainActivity : AppCompatActivity() {
 
     private fun saveAll() {
         val name = username.text.toString()
-        prefs.edit().putString("username", name).putInt("counter", counter).apply()
-        File(filesDir, "state.txt").writeText("$name|$counter")
-        File(cacheDir, "cache-marker.txt").writeText("$name|$counter")
-        db.save(name, counter)
+        store.save(name, counter)
         render()
     }
 
@@ -61,9 +61,11 @@ class MainActivity : AppCompatActivity() {
             appendLine("package=$packageName")
             appendLine("uid=${Process.myUid()}")
             appendLine("pid=${Process.myPid()}")
-            appendLine("files=${filesDir.absolutePath}")
-            appendLine("cache=${cacheDir.absolutePath}")
-            appendLine("db=${getDatabasePath("ca_test.db").absolutePath}")
+            appendLine("vUser=${intent.getIntExtra(EXTRA_CA_VIRTUAL_USER_ID, -1)}")
+            appendLine("virtualStorage=${storageContext.isVirtualized}")
+            appendLine("files=${storageContext.filesDir.absolutePath}")
+            appendLine("cache=${storageContext.cacheDir.absolutePath}")
+            appendLine("db=${storageContext.getDatabasePath("ca_test.db").absolutePath}")
         }
     }
 
@@ -83,21 +85,8 @@ class MainActivity : AppCompatActivity() {
             requestPermissions(arrayOf(Manifest.permission.POST_NOTIFICATIONS), 42)
         }
     }
-}
 
-private class TestDb(context: Context) : SQLiteOpenHelper(context, "ca_test.db", null, 1) {
-    override fun onCreate(db: SQLiteDatabase) {
-        db.execSQL("CREATE TABLE state(id INTEGER PRIMARY KEY, username TEXT, counter INTEGER)")
-    }
-
-    override fun onUpgrade(db: SQLiteDatabase, oldVersion: Int, newVersion: Int) = Unit
-
-    fun save(username: String, counter: Int) {
-        writableDatabase.delete("state", null, null)
-        writableDatabase.insert("state", null, ContentValues().apply {
-            put("id", 1)
-            put("username", username)
-            put("counter", counter)
-        })
+    companion object {
+        private const val EXTRA_CA_VIRTUAL_USER_ID = "ca.virtualUserId"
     }
 }

@@ -150,7 +150,11 @@ class MainActivity : AppCompatActivity() {
                     appendLine("• ${it.displayName}")
                     appendLine("  package=${it.basePackageName}")
                     appendLine("  vUser=${it.virtualUserId}")
-                    appendLine("  root=${storage.rootFor(it).absolutePath}")
+                    if (it.basePackageName == "com.cloneapp.testapp") {
+                        appendLine("  root=${storage.rootFor(it).absolutePath}")
+                    } else {
+                        appendLine("  root=not allocated")
+                    }
                 }
                 appendLine()
                 append("Guest runtime: NOT IMPLEMENTED")
