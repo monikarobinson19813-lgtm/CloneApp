@@ -3,7 +3,6 @@ package com.cloneapp.ca
 import android.content.Context
 import android.os.SystemClock
 import android.widget.Button
-import androidx.lifecycle.Lifecycle
 import androidx.test.core.app.ActivityScenario
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.test.platform.app.InstrumentationRegistry
@@ -42,7 +41,7 @@ class GuestActivityLaunchRuntimeTest {
             assertEquals(alice.virtualUserId, aliceLaunch.virtualUserId)
 
             device.pressBack()
-            scenario.moveToState(Lifecycle.State.RESUMED)
+            waitForForegroundPackage("com.cloneapp.ca")
 
             tapLaunchButton(scenario, R.id.launchBob)
             waitForForegroundPackage("com.cloneapp.testapp")
@@ -85,7 +84,7 @@ class GuestActivityLaunchRuntimeTest {
             )
 
             device.pressBack()
-            scenario.moveToState(Lifecycle.State.RESUMED)
+            waitForForegroundPackage("com.cloneapp.ca")
         } finally {
             scenario.close()
         }
