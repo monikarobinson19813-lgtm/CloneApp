@@ -2,12 +2,9 @@ package com.cloneapp.ca
 
 import android.content.Context
 import android.os.SystemClock
+import android.widget.Button
 import androidx.lifecycle.Lifecycle
 import androidx.test.core.app.ActivityScenario
-import androidx.test.espresso.Espresso.onView
-import androidx.test.espresso.action.ViewActions.click
-import androidx.test.espresso.action.ViewActions.scrollTo
-import androidx.test.espresso.matcher.ViewMatchers.withId
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.test.platform.app.InstrumentationRegistry
 import androidx.test.uiautomator.By
@@ -39,7 +36,7 @@ class GuestActivityLaunchRuntimeTest {
         try {
             val coordinator = GuestLaunchCoordinator(context)
 
-            tapLaunchButton(R.id.launchAlice)
+            tapLaunchButton(scenario, R.id.launchAlice)
             waitForForegroundPackage("com.cloneapp.testapp")
             val alice = registry.list().single { it.displayName == "Alice" }
             val aliceLaunch = waitForPersistedLaunch(coordinator, "Alice")
@@ -49,7 +46,7 @@ class GuestActivityLaunchRuntimeTest {
             device.pressBack()
             scenario.moveToState(Lifecycle.State.RESUMED)
 
-            tapLaunchButton(R.id.launchBob)
+            tapLaunchButton(scenario, R.id.launchBob)
             waitForForegroundPackage("com.cloneapp.testapp")
             val bob = registry.list().single { it.displayName == "Bob" }
             val bobLaunch = waitForPersistedLaunch(coordinator, "Bob")
@@ -114,8 +111,14 @@ class GuestActivityLaunchRuntimeTest {
         )
     }
 
-    private fun tapLaunchButton(resourceId: Int) {
-        onView(withId(resourceId)).perform(scrollTo(), click())
+    private fun tapLaunchButton(
+        scenario: ActivityScenario<MainActivity>,
+        resourceId: Int,
+    ) {
+        scenario.onActivity { activity ->
+            val clicked = activity.findViewById<Button>(resourceId).performClick()
+            check(clicked) { "Launch button $resourceId did not handle click" }
+        }
     }
 
     private fun waitForPersistedLaunch(
