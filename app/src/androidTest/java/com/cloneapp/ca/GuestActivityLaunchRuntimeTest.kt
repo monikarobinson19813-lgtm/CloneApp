@@ -3,7 +3,6 @@ package com.cloneapp.ca
 import android.content.Context
 import android.os.SystemClock
 import android.widget.Button
-import androidx.lifecycle.Lifecycle
 import androidx.test.core.app.ActivityScenario
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.test.platform.app.InstrumentationRegistry
@@ -41,8 +40,7 @@ class GuestActivityLaunchRuntimeTest {
             assertEquals("Alice", aliceLaunch.instanceName)
             assertEquals(alice.virtualUserId, aliceLaunch.virtualUserId)
 
-            device.pressBack()
-            scenario.moveToState(Lifecycle.State.RESUMED)
+            stopGuestAndWaitForHost()
 
             tapLaunchButton(scenario, R.id.launchBob)
             waitForForegroundPackage("com.cloneapp.testapp")
@@ -84,8 +82,7 @@ class GuestActivityLaunchRuntimeTest {
                     .contains("No imported APK metadata"),
             )
 
-            device.pressBack()
-            scenario.moveToState(Lifecycle.State.RESUMED)
+            stopGuestAndWaitForHost()
         } finally {
             scenario.close()
         }
@@ -117,6 +114,11 @@ class GuestActivityLaunchRuntimeTest {
             val clicked = activity.findViewById<Button>(resourceId).performClick()
             check(clicked) { "Launch button $resourceId did not handle click" }
         }
+    }
+
+    private fun stopGuestAndWaitForHost() {
+        device.executeShellCommand("am force-stop com.cloneapp.testapp")
+        waitForForegroundPackage("com.cloneapp.ca")
     }
 
     private fun waitForPersistedLaunch(
