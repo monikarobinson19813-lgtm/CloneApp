@@ -17,6 +17,7 @@ adb shell getprop sys.boot_completed | grep -q "1"
 adb install -r ci-artifacts/cloneapp/app-debug.apk
 adb install -r ci-artifacts/cloneapp-test/app-debug-androidTest.apk
 adb install -r ci-artifacts/testapp/testapp-debug.apk
+adb install -r ci-artifacts/testapp-test/testapp-debug-androidTest.apk
 
 adb shell am force-stop com.cloneapp.ca || true
 adb shell am start -W -n com.cloneapp.ca/.MainActivity
@@ -69,6 +70,23 @@ grep -q '^OK (' ci-artifacts/evidence/guest-activity-launch-instrumentation.txt
 adb shell dumpsys activity activities > ci-artifacts/evidence/guest-activity-launch-activities.txt || true
 
 adb shell am force-stop com.cloneapp.testapp || true
+adb shell am instrument -w -r \
+  -e class 'com.cloneapp.testapp.StorageIsolationRuntimeTest#aliceAndBobPrivateStorageAreIndependent' \
+  com.cloneapp.testapp.test/androidx.test.runner.AndroidJUnitRunner \
+  | tee ci-artifacts/evidence/storage-isolation-write-instrumentation.txt
+
+grep -q '^OK (' ci-artifacts/evidence/storage-isolation-write-instrumentation.txt
+
+adb shell am force-stop com.cloneapp.testapp || true
+
+adb shell am instrument -w -r \
+  -e class 'com.cloneapp.testapp.StorageIsolationRuntimeTest#stateSurvivesRestartAndDeletingAliceLeavesBobIntact' \
+  com.cloneapp.testapp.test/androidx.test.runner.AndroidJUnitRunner \
+  | tee ci-artifacts/evidence/storage-isolation-restart-delete-instrumentation.txt
+
+grep -q '^OK (' ci-artifacts/evidence/storage-isolation-restart-delete-instrumentation.txt
+
+adb shell am force-stop com.cloneapp.testapp || true
 adb shell am start -W -n com.cloneapp.testapp/.MainActivity
 sleep 2
 adb shell pidof com.cloneapp.testapp > ci-artifacts/evidence/testapp-pid.txt
@@ -80,4 +98,4 @@ adb shell pm path com.cloneapp.testapp > ci-artifacts/evidence/testapp-package-p
 grep -q "package:" ci-artifacts/evidence/cloneapp-package-path.txt
 grep -q "package:" ci-artifacts/evidence/testapp-package-path.txt
 
-echo "CloneApp emulator smoke + import + metadata + virtual registry + stub process + controlled guest activity launch acceptance PASS" | tee ci-artifacts/evidence/result.txt
+echo "CloneApp emulator smoke + import + metadata + virtual registry + stub process + controlled guest activity launch + private storage isolation acceptance PASS" | tee ci-artifacts/evidence/result.txt

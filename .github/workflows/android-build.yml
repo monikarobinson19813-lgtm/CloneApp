@@ -40,8 +40,8 @@ jobs:
       - name: Run CA Core unit tests
         run: gradle --no-daemon :ca-core:testDebugUnitTest
 
-      - name: Build debug APKs and instrumentation APK
-        run: gradle --no-daemon :app:assembleDebug :app:assembleDebugAndroidTest :testapp:assembleDebug
+      - name: Build debug APKs and instrumentation APKs
+        run: gradle --no-daemon :app:assembleDebug :app:assembleDebugAndroidTest :testapp:assembleDebug :testapp:assembleDebugAndroidTest
 
       - name: Upload CloneApp APK
         uses: actions/upload-artifact@v4
@@ -62,6 +62,13 @@ jobs:
         with:
           name: CA-Test-App-debug
           path: testapp/build/outputs/apk/debug/testapp-debug.apk
+          if-no-files-found: error
+
+      - name: Upload CA Test App instrumentation APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: CA-Test-App-androidTest
+          path: testapp/build/outputs/apk/androidTest/debug/testapp-debug-androidTest.apk
           if-no-files-found: error
 
   emulator-smoke:
@@ -91,6 +98,12 @@ jobs:
         with:
           name: CA-Test-App-debug
           path: ci-artifacts/testapp
+
+      - name: Download CA Test App instrumentation APK
+        uses: actions/download-artifact@v4
+        with:
+          name: CA-Test-App-androidTest
+          path: ci-artifacts/testapp-test
 
       - name: Enable KVM
         run: |
