@@ -8,7 +8,9 @@ import androidx.test.espresso.action.ViewActions.scrollTo
 import androidx.test.espresso.matcher.ViewMatchers.withId
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.test.platform.app.InstrumentationRegistry
+import androidx.test.uiautomator.By
 import androidx.test.uiautomator.UiDevice
+import androidx.test.uiautomator.Until
 import com.cloneapp.core.GuestApkRepository
 import com.cloneapp.core.PrototypeInstanceRegistry
 import com.cloneapp.core.VirtualInstance
@@ -127,16 +129,23 @@ class GuestActivityLaunchRuntimeTest {
     }
 
     private fun waitForForegroundPackage(packageName: String) {
-        val deadline = SystemClock.uptimeMillis() + 8_000L
-        while (SystemClock.uptimeMillis() < deadline) {
-            if (device.currentPackageName == packageName) return
-            SystemClock.sleep(100L)
-        }
-        assertEquals(
-            "Unexpected foreground package",
-            packageName,
-            device.currentPackageName,
+        val appeared = device.wait(
+            Until.hasObject(By.pkg(packageName).depth(0)),
+            PACKAGE_APPEAR_TIMEOUT_MS,
         )
+        if (!appeared) {
+            val activityState = device.executeShellCommand(
+                "dumpsys activity activities | grep -E 'topResumedActivity|ResumedActivity|mFocusedApp'"
+            )
+            throw AssertionError(
+                "Package $packageName did not expose a root UI window within " +
+                    "$PACKAGE_APPEAR_TIMEOUT_MS ms. Activity state:\n$activityState"
+            )
+        }
+    }
+
+    companion object {
+        private const val PACKAGE_APPEAR_TIMEOUT_MS = 8_000L
     }
 
     private fun clearLaunchState() {
