@@ -1,5 +1,6 @@
 package com.cloneapp.ca
 
+import android.app.Activity
 import android.content.ComponentName
 import android.content.Context
 import android.content.Intent
@@ -21,6 +22,7 @@ data class GuestLaunchResult(
 )
 
 class GuestLaunchCoordinator(context: Context) {
+    private val launchContext = context
     private val appContext = context.applicationContext
     private val artifacts = GuestApkRepository(appContext)
     private val virtualPackages = VirtualPackageRegistry(appContext)
@@ -103,14 +105,16 @@ class GuestLaunchCoordinator(context: Context) {
                     val launchIntent = Intent(Intent.ACTION_MAIN).apply {
                         this.component = component
                         addCategory(Intent.CATEGORY_LAUNCHER)
-                        addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                        if (launchContext !is Activity) {
+                            addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                        }
                         putExtra(EXTRA_CA_INSTANCE_NAME, instance.displayName)
                         putExtra(EXTRA_CA_VIRTUAL_USER_ID, instance.virtualUserId)
                         putExtra(EXTRA_CA_SOURCE_ARTIFACT_ID, artifact.id)
                     }
 
                     runCatching {
-                        appContext.startActivity(launchIntent)
+                        launchContext.startActivity(launchIntent)
                         GuestLaunchResult(
                             instanceName = instance.displayName,
                             virtualUserId = instance.virtualUserId,
