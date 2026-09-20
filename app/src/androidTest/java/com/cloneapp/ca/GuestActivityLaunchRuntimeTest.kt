@@ -5,8 +5,6 @@ import android.os.SystemClock
 import androidx.test.espresso.Espresso.onView
 import androidx.test.espresso.action.ViewActions.click
 import androidx.test.espresso.action.ViewActions.scrollTo
-import androidx.test.espresso.assertion.ViewAssertions.matches
-import androidx.test.espresso.matcher.ViewMatchers.isDisplayed
 import androidx.test.espresso.matcher.ViewMatchers.withId
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.test.platform.app.InstrumentationRegistry
@@ -115,7 +113,19 @@ class GuestActivityLaunchRuntimeTest {
     }
 
     private fun waitForCloneAppUi() {
-        onView(withId(R.id.statusText)).check(matches(isDisplayed()))
+        val visible = device.wait(
+            Until.hasObject(By.res("com.cloneapp.ca", "statusText")),
+            CLONE_APP_UI_TIMEOUT_MS,
+        )
+        if (!visible) {
+            val activityState = device.executeShellCommand(
+                "dumpsys activity activities | grep -E 'topResumedActivity|ResumedActivity|mFocusedApp'"
+            )
+            throw AssertionError(
+                "CloneApp status UI did not appear within $CLONE_APP_UI_TIMEOUT_MS ms. " +
+                    "Activity state:\n$activityState"
+            )
+        }
     }
 
     private fun tapLaunchButton(resourceId: Int) {
@@ -152,6 +162,7 @@ class GuestActivityLaunchRuntimeTest {
 
     companion object {
         private const val PACKAGE_APPEAR_TIMEOUT_MS = 8_000L
+        private const val CLONE_APP_UI_TIMEOUT_MS = 8_000L
     }
 
     private fun clearLaunchState() {
