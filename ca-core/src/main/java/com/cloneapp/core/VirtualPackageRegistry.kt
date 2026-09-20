@@ -4,13 +4,7 @@ import android.content.Context
 import org.json.JSONArray
 import org.json.JSONObject
 
-/**
- * CA-owned registry for imported packages and their virtual-user bindings.
- *
- * This deliberately does not pretend that Android installed the guest package;
- * it only exposes metadata already parsed by CloneApp and keeps instance state
- * separate from the immutable package record.
- */
+/** CA-owned metadata/instance registry; it does not represent Android package installation. */
 class VirtualPackageRegistry(context: Context) {
     private val prefs = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
 
@@ -23,8 +17,7 @@ class VirtualPackageRegistry(context: Context) {
     }
 
     @Synchronized
-    fun packageByName(packageName: String): GuestPackageMetadata? =
-        readState().packages[packageName]
+    fun packageByName(packageName: String): GuestPackageMetadata? = readState().packages[packageName]
 
     @Synchronized
     fun launcherComponents(packageName: String): List<GuestComponentMetadata> {
@@ -60,7 +53,6 @@ class VirtualPackageRegistry(context: Context) {
         return removed
     }
 
-    /** Unregister only when no virtual-user instance still references the package. */
     @Synchronized
     fun unregister(packageName: String): Boolean {
         val state = readState()
@@ -84,10 +76,7 @@ class VirtualPackageRegistry(context: Context) {
             val instanceArray = root.optJSONArray("instances") ?: JSONArray()
             for (index in 0 until instanceArray.length()) {
                 val item = instanceArray.getJSONObject(index)
-                val instance = VirtualPackageInstance(
-                    packageName = item.getString("packageName"),
-                    virtualUserId = item.getString("virtualUserId"),
-                )
+                val instance = VirtualPackageInstance(item.getString("packageName"), item.getString("virtualUserId"))
                 if (packages.containsKey(instance.packageName)) instances[instance.key] = instance
             }
             RegistryState(packages, instances)
@@ -115,13 +104,13 @@ class VirtualPackageRegistry(context: Context) {
         put("versionCode", versionCode)
         put("versionName", versionName ?: JSONObject.NULL)
         put("launcherActivity", launcherActivity ?: JSONObject.NULL)
-        put("activities", activities.toJsonArray())
-        put("services", services.toJsonArray())
-        put("providers", providers.toJsonArray())
-        put("receivers", receivers.toJsonArray())
-        put("requestedPermissions", requestedPermissions.toJsonArray())
-        put("nativeAbis", nativeAbis.toJsonArray())
-        put("nativeLibraries", nativeLibraries.toJsonArray())
+        put("activities", activities.toComponentJsonArray())
+        put("services", services.toComponentJsonArray())
+        put("providers", providers.toComponentJsonArray())
+        put("receivers", receivers.toComponentJsonArray())
+        put("requestedPermissions", requestedPermissions.toStringJsonArray())
+        put("nativeAbis", nativeAbis.toStringJsonArray())
+        put("nativeLibraries", nativeLibraries.toStringJsonArray())
     }
 
     private fun JSONObject.toPackageMetadata(): GuestPackageMetadata = GuestPackageMetadata(
@@ -138,18 +127,18 @@ class VirtualPackageRegistry(context: Context) {
         nativeLibraries = getJSONArray("nativeLibraries").toStrings(),
     )
 
-    private fun List<GuestComponentMetadata>.toJsonArray(): JSONArray = JSONArray().also { array ->
+    private fun List<GuestComponentMetadata>.toComponentJsonArray(): JSONArray = JSONArray().also { array ->
         forEach { component ->
             array.put(JSONObject().apply {
                 put("name", component.name)
                 put("exported", component.exported)
                 put("permission", component.permission ?: JSONObject.NULL)
-                put("authorities", component.authorities.toJsonArray())
+                put("authorities", component.authorities.toStringJsonArray())
             })
         }
     }
 
-    private fun List<String>.toJsonArray(): JSONArray = JSONArray().also { array -> forEach(array::put) }
+    private fun List<String>.toStringJsonArray(): JSONArray = JSONArray().also { array -> forEach(array::put) }
 
     private fun JSONArray.toComponents(): List<GuestComponentMetadata> = buildList {
         for (index in 0 until length()) {
@@ -181,10 +170,7 @@ class VirtualPackageRegistry(context: Context) {
     }
 }
 
-data class VirtualPackageInstance(
-    val packageName: String,
-    val virtualUserId: String,
-) {
+data class VirtualPackageInstance(val packageName: String, val virtualUserId: String) {
     val key: String get() = key(packageName, virtualUserId)
 
     companion object {
