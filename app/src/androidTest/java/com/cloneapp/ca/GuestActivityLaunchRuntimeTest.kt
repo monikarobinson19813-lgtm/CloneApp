@@ -2,11 +2,13 @@ package com.cloneapp.ca
 
 import android.content.Context
 import android.os.SystemClock
+import androidx.test.espresso.Espresso.onView
+import androidx.test.espresso.action.ViewActions.click
+import androidx.test.espresso.action.ViewActions.scrollTo
+import androidx.test.espresso.matcher.ViewMatchers.withId
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.test.platform.app.InstrumentationRegistry
 import androidx.test.uiautomator.UiDevice
-import androidx.test.uiautomator.UiScrollable
-import androidx.test.uiautomator.UiSelector
 import com.cloneapp.core.GuestApkRepository
 import com.cloneapp.core.PrototypeInstanceRegistry
 import com.cloneapp.core.VirtualInstance
@@ -32,7 +34,7 @@ class GuestActivityLaunchRuntimeTest {
         startCloneApp()
         val coordinator = GuestLaunchCoordinator(context)
 
-        tapLaunchButton("launchAlice")
+        tapLaunchButton(R.id.launchAlice)
         waitForForegroundPackage("com.cloneapp.testapp")
         val alice = registry.list().single { it.displayName == "Alice" }
         val aliceLaunch = waitForPersistedLaunch(coordinator, "Alice")
@@ -42,7 +44,7 @@ class GuestActivityLaunchRuntimeTest {
         device.pressBack()
         waitForForegroundPackage("com.cloneapp.ca")
 
-        tapLaunchButton("launchBob")
+        tapLaunchButton(R.id.launchBob)
         waitForForegroundPackage("com.cloneapp.testapp")
         val bob = registry.list().single { it.displayName == "Bob" }
         val bobLaunch = waitForPersistedLaunch(coordinator, "Bob")
@@ -108,16 +110,8 @@ class GuestActivityLaunchRuntimeTest {
         waitForForegroundPackage("com.cloneapp.ca")
     }
 
-    private fun tapLaunchButton(resourceName: String) {
-        val scroller = UiScrollable(UiSelector().scrollable(true))
-        scroller.scrollIntoView(
-            UiSelector().resourceId("com.cloneapp.ca:id/$resourceName")
-        )
-        val button = device.findObject(
-            UiSelector().resourceId("com.cloneapp.ca:id/$resourceName")
-        )
-        assertTrue("Launch button $resourceName is not visible", button.exists())
-        button.click()
+    private fun tapLaunchButton(resourceId: Int) {
+        onView(withId(resourceId)).perform(scrollTo(), click())
     }
 
     private fun waitForPersistedLaunch(
