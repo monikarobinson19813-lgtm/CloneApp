@@ -6,6 +6,7 @@ import android.app.NotificationChannel
 import android.app.NotificationManager
 import android.content.Context
 import android.os.Build
+import android.service.notification.StatusBarNotification
 import androidx.test.core.app.ApplicationProvider
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.test.platform.app.InstrumentationRegistry
@@ -32,6 +33,7 @@ class NotificationTranslationRuntimeTest {
             )
         }
         manager.cancelAll()
+        awaitNotifications { it.isEmpty() }
     }
 
     @After
@@ -64,14 +66,18 @@ class NotificationTranslationRuntimeTest {
         post(alice)
         post(bob)
 
-        val active = manager.activeNotifications.associateBy { it.id }
-        assertTrue(active.containsKey(alice.translatedNotificationId))
-        assertTrue(active.containsKey(bob.translatedNotificationId))
+        val active = awaitNotifications { notifications ->
+            val ids = notifications.map { it.id }.toSet()
+            alice.translatedNotificationId in ids && bob.translatedNotificationId in ids
+        }.associateBy { it.id }
         assertEquals(alice.visibleTitle, active.getValue(alice.translatedNotificationId).notification.extras.getString(Notification.EXTRA_TITLE))
         assertEquals(bob.visibleTitle, active.getValue(bob.translatedNotificationId).notification.extras.getString(Notification.EXTRA_TITLE))
 
         manager.cancel(alice.translatedNotificationId)
-        val remaining = manager.activeNotifications.map { it.id }
+        val remaining = awaitNotifications { notifications ->
+            val ids = notifications.map { it.id }.toSet()
+            alice.translatedNotificationId !in ids && bob.translatedNotificationId in ids
+        }.map { it.id }
         assertTrue(alice.translatedNotificationId !in remaining)
         assertTrue(bob.translatedNotificationId in remaining)
 
@@ -97,5 +103,19 @@ class NotificationTranslationRuntimeTest {
             .setContentText("controlled guest notification")
             .build()
         manager.notify(route.translatedNotificationId, notification)
+    }
+
+    private fun awaitNotifications(
+        timeoutMs: Long = 3_000,
+        predicate: (Array<StatusBarNotification>) -> Boolean,
+    ): Array<StatusBarNotification> {
+        val deadline = System.currentTimeMillis() + timeoutMs
+        var notifications = manager.activeNotifications
+        while (!predicate(notifications) && System.currentTimeMillis() < deadline) {
+            Thread.sleep(50)
+            notifications = manager.activeNotifications
+        }
+        assertTrue("notification state did not settle before timeout", predicate(notifications))
+        return notifications
     }
 }
