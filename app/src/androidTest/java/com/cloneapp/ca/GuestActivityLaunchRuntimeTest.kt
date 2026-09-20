@@ -7,9 +7,7 @@ import androidx.lifecycle.Lifecycle
 import androidx.test.core.app.ActivityScenario
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.test.platform.app.InstrumentationRegistry
-import androidx.test.uiautomator.By
 import androidx.test.uiautomator.UiDevice
-import androidx.test.uiautomator.Until
 import com.cloneapp.core.GuestApkRepository
 import com.cloneapp.core.PrototypeInstanceRegistry
 import com.cloneapp.core.VirtualInstance
@@ -134,19 +132,27 @@ class GuestActivityLaunchRuntimeTest {
     }
 
     private fun waitForForegroundPackage(packageName: String) {
-        val appeared = device.wait(
-            Until.hasObject(By.pkg(packageName).depth(0)),
-            PACKAGE_APPEAR_TIMEOUT_MS,
-        )
-        if (!appeared) {
-            val activityState = device.executeShellCommand(
+        val deadline = SystemClock.uptimeMillis() + PACKAGE_APPEAR_TIMEOUT_MS
+        var activityState = ""
+        while (SystemClock.uptimeMillis() < deadline) {
+            activityState = device.executeShellCommand(
                 "dumpsys activity activities | grep -E 'topResumedActivity|ResumedActivity|mFocusedApp'"
             )
-            throw AssertionError(
-                "Package $packageName did not expose a root UI window within " +
-                    "$PACKAGE_APPEAR_TIMEOUT_MS ms. Activity state:\n$activityState"
-            )
+            if (
+                activityState.lineSequence().any { line ->
+                    line.contains("topResumedActivity=") &&
+                        line.contains(" $packageName/") 
+                }
+            ) {
+                return
+            }
+            SystemClock.sleep(100L)
         }
+
+        throw AssertionError(
+            "Package $packageName did not become top-resumed within " +
+                "$PACKAGE_APPEAR_TIMEOUT_MS ms. Activity state:\n$activityState"
+        )
     }
 
     companion object {
