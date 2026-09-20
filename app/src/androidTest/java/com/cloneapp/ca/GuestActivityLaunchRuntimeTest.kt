@@ -5,6 +5,8 @@ import android.os.SystemClock
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.test.platform.app.InstrumentationRegistry
 import androidx.test.uiautomator.UiDevice
+import androidx.test.uiautomator.UiScrollable
+import androidx.test.uiautomator.UiSelector
 import com.cloneapp.core.GuestApkRepository
 import com.cloneapp.core.PrototypeInstanceRegistry
 import com.cloneapp.core.VirtualInstance
@@ -14,8 +16,6 @@ import org.junit.Assert.assertNotNull
 import org.junit.Assert.assertTrue
 import org.junit.Test
 import org.junit.runner.RunWith
-import java.util.concurrent.CountDownLatch
-import java.util.concurrent.TimeUnit
 
 @RunWith(AndroidJUnit4::class)
 class GuestActivityLaunchRuntimeTest {
@@ -30,24 +30,25 @@ class GuestActivityLaunchRuntimeTest {
         val registry = PrototypeInstanceRegistry(context)
         registry.list().forEach { registry.delete(it.id) }
 
-        val alice = registry.create("com.cloneapp.testapp", "Alice")
-        val bob = registry.create("com.cloneapp.testapp", "Bob")
+        startCloneApp()
         val coordinator = GuestLaunchCoordinator(context)
 
-        val aliceLaunch = launchAndAwait(coordinator, alice)
+        tapLaunchButton("launchAlice")
         waitForForegroundPackage("com.cloneapp.testapp")
+        val alice = registry.list().single { it.displayName == "Alice" }
+        val aliceLaunch = waitForPersistedLaunch(coordinator, "Alice")
         assertEquals("Alice", aliceLaunch.instanceName)
         assertEquals(alice.virtualUserId, aliceLaunch.virtualUserId)
-        assertNotNull(coordinator.lastLaunch("Alice"))
 
         device.pressBack()
         waitForForegroundPackage("com.cloneapp.ca")
 
-        val bobLaunch = launchAndAwait(coordinator, bob)
+        tapLaunchButton("launchBob")
         waitForForegroundPackage("com.cloneapp.testapp")
+        val bob = registry.list().single { it.displayName == "Bob" }
+        val bobLaunch = waitForPersistedLaunch(coordinator, "Bob")
         assertEquals("Bob", bobLaunch.instanceName)
         assertEquals(bob.virtualUserId, bobLaunch.virtualUserId)
-        assertNotNull(coordinator.lastLaunch("Bob"))
 
         assertNotEquals(
             "Alice and Bob must keep distinct CA virtual-user IDs",
@@ -101,26 +102,33 @@ class GuestActivityLaunchRuntimeTest {
         )
     }
 
-    private fun launchAndAwait(
-        coordinator: GuestLaunchCoordinator,
-        instance: VirtualInstance,
-    ): GuestLaunchResult = launchResult(coordinator, instance).getOrThrow()
+    private fun startCloneApp() {
+        device.executeShellCommand("am start -W -n com.cloneapp.ca/.MainActivity")
+        waitForForegroundPackage("com.cloneapp.ca")
+    }
 
-    private fun launchResult(
-        coordinator: GuestLaunchCoordinator,
-        instance: VirtualInstance,
-    ): Result<GuestLaunchResult> {
-        val latch = CountDownLatch(1)
-        var result: Result<GuestLaunchResult>? = null
-        coordinator.launch(instance) {
-            result = it
-            latch.countDown()
-        }
-        assertTrue(
-            "Timed out waiting for guest launch for ${instance.displayName}",
-            latch.await(10, TimeUnit.SECONDS),
+    private fun tapLaunchButton(resourceName: String) {
+        val scroller = UiScrollable(UiSelector().scrollable(true))
+        scroller.scrollIntoView(
+            UiSelector().resourceId("com.cloneapp.ca:id/$resourceName")
         )
-        return requireNotNull(result)
+        val button = device.findObject(
+            UiSelector().resourceId("com.cloneapp.ca:id/$resourceName")
+        )
+        assertTrue("Launch button $resourceName is not visible", button.exists())
+        button.click()
+    }
+
+    private fun waitForPersistedLaunch(
+        coordinator: GuestLaunchCoordinator,
+        instanceName: String,
+    ): GuestLaunchResult {
+        val deadline = SystemClock.uptimeMillis() + 8_000L
+        while (SystemClock.uptimeMillis() < deadline) {
+            coordinator.lastLaunch(instanceName)?.let { return it }
+            SystemClock.sleep(100L)
+        }
+        error("No persisted launch diagnostics for $instanceName")
     }
 
     private fun waitForForegroundPackage(packageName: String) {
