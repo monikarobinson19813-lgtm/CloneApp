@@ -5,6 +5,8 @@ import android.os.SystemClock
 import androidx.test.espresso.Espresso.onView
 import androidx.test.espresso.action.ViewActions.click
 import androidx.test.espresso.action.ViewActions.scrollTo
+import androidx.test.espresso.assertion.ViewAssertions.matches
+import androidx.test.espresso.matcher.ViewMatchers.isDisplayed
 import androidx.test.espresso.matcher.ViewMatchers.withId
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.test.platform.app.InstrumentationRegistry
@@ -44,7 +46,7 @@ class GuestActivityLaunchRuntimeTest {
         assertEquals(alice.virtualUserId, aliceLaunch.virtualUserId)
 
         device.pressBack()
-        waitForForegroundPackage("com.cloneapp.ca")
+        waitForCloneAppUi()
 
         tapLaunchButton(R.id.launchBob)
         waitForForegroundPackage("com.cloneapp.testapp")
@@ -109,7 +111,11 @@ class GuestActivityLaunchRuntimeTest {
 
     private fun startCloneApp() {
         device.executeShellCommand("am start -W -n com.cloneapp.ca/.MainActivity")
-        waitForForegroundPackage("com.cloneapp.ca")
+        waitForCloneAppUi()
+    }
+
+    private fun waitForCloneAppUi() {
+        onView(withId(R.id.statusText)).check(matches(isDisplayed()))
     }
 
     private fun tapLaunchButton(resourceId: Int) {
