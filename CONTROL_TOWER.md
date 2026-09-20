@@ -1,6 +1,6 @@
 # CloneApp Control Tower
 
-_Last reconciled: 2026-09-20_
+_Last reconciled: 2026-09-21_
 
 This file is the first file every CloneApp engineering/control agent should read.
 
@@ -21,42 +21,40 @@ Target:
 
 ## Current overall state
 
-**PRODUCT: READY — ISSUE #3**  
+**PRODUCT: READY — ISSUE #8**  
 **ENGINEERING OS: ADVANCED FOUNDATION BUILT; FULL CLOSED-LOOP AUTONOMY NOT YET COMPLETE**
 
 ## Current product task
 
-**Issue #3 — Build Virtual Package Registry for imported guests**
+**Issue #8 — Translate notifications per virtual instance**
 
 State: **CURRENT / READY**
 
 Dependencies:
-- Issue #1 — accepted/closed;
-- Issue #2 — accepted/closed and merged to `main`.
+- Issue #5 — accepted/closed;
+- Issues #6 and #7 — accepted and merged to `main`.
 
 Latest product evidence:
-- PR #43 merged to `main`;
-- Android Build #94 on the validated PR head: GREEN, including Android 16 emulator runtime evidence;
-- Android Build #95 on `main`: GREEN;
-- no active/queued Android run;
-- no open pull request.
+- PR #49 (Issue #7 provider isolation/routing) merged to `main` as `51ff42ec63d56375b9d1011e998d9d0961bca72d`;
+- validated PR head passed Android Build #128 including Android 16 emulator runtime evidence;
+- post-merge Android Build #129 initially hit repeated SystemUI/emulator infrastructure failures, then attempt 3 completed GREEN on the unchanged merge commit;
+- no product-code repair was required for that infrastructure incident;
+- Issue #8 is open and dependency-satisfied.
 
-Issue #3 bounded scope:
-- register imported package metadata;
-- query package by name;
-- query launcher activity/component list;
-- bind package record to CA virtual users/instances;
-- deterministic persistence;
-- clean delete/unregister semantics.
+Issue #8 bounded scope:
+- instance-aware notification ID/channel mapping;
+- visible Alice/Bob distinction;
+- basic notification lifecycle;
+- emulator runtime verification.
 
-Out of scope for Issue #3:
-- ActivityManager interception;
-- process hosting;
-- guest execution;
-- Android PackageManager spoofing.
+Out of scope for Issue #8:
+- broad background-service architecture;
+- FCM/push identity virtualization;
+- Doze/battery-policy work;
+- Play Integrity or security bypasses.
 
 Next bounded action:
-- dispatch/implement Issue #3 on an issue-specific branch;
+- dispatch/implement Issue #8 on an issue-specific branch;
 - add/update tests where practical;
 - push one coherent patch and open/update its PR;
 - stop and await required CI/runtime evidence.
@@ -65,12 +63,12 @@ Next bounded action:
 
 1. Issue #1 — Guest APK import — **ACCEPTED / CLOSED**
 2. Issue #2 — Parse guest package/manifest/components — **ACCEPTED / CLOSED**
-3. Issue #3 — Virtual package registry — **CURRENT / READY**
-4. Issue #4 — Stub guest process host — WAITING
-5. Issue #5 — Guest activity launch path — WAITING
-6. Issue #6 — Per-instance filesystem/IO isolation — WAITING
-7. Issue #7 — Provider isolation/routing — WAITING
-8. Issue #8 — Per-instance notification translation — WAITING
+3. Issue #3 — Virtual package registry — **ACCEPTED / CLOSED**
+4. Issue #4 — Stub guest process host — **ACCEPTED / CLOSED**
+5. Issue #5 — Guest activity launch path — **ACCEPTED / CLOSED**
+6. Issue #6 — Per-instance filesystem/IO isolation — **ACCEPTED / MERGED**
+7. Issue #7 — Provider isolation/routing — **ACCEPTED / MERGED**
+8. Issue #8 — Per-instance notification translation — **CURRENT / READY**
 9. Issue #9 — Alice/Bob v0.1 integration acceptance — WAITING
 
 ## Engineering OS status
@@ -93,7 +91,7 @@ It should remain owner-facing and reconstruct:
 
 ## Current blockers
 
-Product: **NONE for Issue #3 dispatch.**
+Product: **NONE for Issue #8 dispatch.**
 
 ## Owner decision required?
 
