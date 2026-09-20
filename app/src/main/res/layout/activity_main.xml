@@ -49,6 +49,27 @@
             android:layout_height="wrap_content"
             android:text="Create Test Instance B — Bob" />
 
+        <Button
+            android:id="@+id/launchAlice"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="12dp"
+            android:text="Launch Guest as Alice" />
+
+        <Button
+            android:id="@+id/launchBob"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="Launch Guest as Bob" />
+
+        <TextView
+            android:id="@+id/launchDiagnosticsText"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="12dp"
+            android:text="Guest launch: not started"
+            android:typeface="monospace" />
+
         <TextView
             android:id="@+id/instancesText"
             android:layout_width="match_parent"
