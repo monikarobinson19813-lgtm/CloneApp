@@ -40,8 +40,7 @@ class GuestActivityLaunchRuntimeTest {
             assertEquals("Alice", aliceLaunch.instanceName)
             assertEquals(alice.virtualUserId, aliceLaunch.virtualUserId)
 
-            device.pressBack()
-            waitForForegroundPackage("com.cloneapp.ca")
+            stopGuestAndWaitForHost()
 
             tapLaunchButton(scenario, R.id.launchBob)
             waitForForegroundPackage("com.cloneapp.testapp")
@@ -83,8 +82,7 @@ class GuestActivityLaunchRuntimeTest {
                     .contains("No imported APK metadata"),
             )
 
-            device.pressBack()
-            waitForForegroundPackage("com.cloneapp.ca")
+            stopGuestAndWaitForHost()
         } finally {
             scenario.close()
         }
@@ -116,6 +114,11 @@ class GuestActivityLaunchRuntimeTest {
             val clicked = activity.findViewById<Button>(resourceId).performClick()
             check(clicked) { "Launch button $resourceId did not handle click" }
         }
+    }
+
+    private fun stopGuestAndWaitForHost() {
+        device.executeShellCommand("am force-stop com.cloneapp.testapp")
+        waitForForegroundPackage("com.cloneapp.ca")
     }
 
     private fun waitForPersistedLaunch(
