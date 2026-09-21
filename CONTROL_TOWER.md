@@ -21,43 +21,43 @@ Target:
 
 ## Current overall state
 
-**PRODUCT: READY — ISSUE #8**  
+**PRODUCT: READY — ISSUE #9 ACCEPTANCE GATE**  
 **ENGINEERING OS: ADVANCED FOUNDATION BUILT; FULL CLOSED-LOOP AUTONOMY NOT YET COMPLETE**
 
 ## Current product task
 
-**Issue #8 — Translate notifications per virtual instance**
+**Issue #9 — Alice/Bob v0.1 integration acceptance gate**
 
 State: **CURRENT / READY**
 
 Dependencies:
-- Issue #5 — accepted/closed;
-- Issues #6 and #7 — accepted and merged to `main`.
+- Issues #1 through #8 — accepted/closed.
 
 Latest product evidence:
-- PR #49 (Issue #7 provider isolation/routing) merged to `main` as `51ff42ec63d56375b9d1011e998d9d0961bca72d`;
-- validated PR head passed Android Build #128 including Android 16 emulator runtime evidence;
-- post-merge Android Build #129 initially hit repeated SystemUI/emulator infrastructure failures, then attempt 3 completed GREEN on the unchanged merge commit;
-- no product-code repair was required for that infrastructure incident;
-- Issue #8 is open and dependency-satisfied.
+- PR #50 (Issue #8 per-instance notification translation) merged to `main` as `6b6db6a049784230c6b25cfb002fc86339c188ad`;
+- validated PR head passed Android Build #134 including Android 16 emulator runtime evidence;
+- Issue #8 is closed completed;
+- Issue #9 is open and dependency-satisfied.
 
-Issue #8 bounded scope:
-- instance-aware notification ID/channel mapping;
-- visible Alice/Bob distinction;
-- basic notification lifecycle;
-- emulator runtime verification.
+Issue #9 bounded scope:
+- run the complete v0.1 Alice/Bob acceptance suite;
+- record exact CA commit/build and Android/device;
+- verify storage/provider/notification isolation and lifecycle persistence;
+- explicitly record native ARM64 probe status;
+- update `COMPATIBILITY_MATRIX.md` with evidence.
 
-Out of scope for Issue #8:
-- broad background-service architecture;
-- FCM/push identity virtualization;
-- Doze/battery-policy work;
+Out of scope for Issue #9:
+- feature implementation or opportunistic product patches;
+- broad architecture changes;
 - Play Integrity or security bypasses.
 
+If acceptance FAILS, create a bounded defect issue and route it through Control Tower; do not patch inside Issue #9.
+
 Next bounded action:
-- dispatch/implement Issue #8 on an issue-specific branch;
-- add/update tests where practical;
-- push one coherent patch and open/update its PR;
-- stop and await required CI/runtime evidence.
+- execute/check the Issue #9 v0.1 acceptance gate against the exact current CA commit/build;
+- preserve automated/runtime evidence;
+- report only PASS / FAIL / INFRASTRUCTURE FAILURE;
+- stop.
 
 ## Product queue
 
@@ -68,8 +68,8 @@ Next bounded action:
 5. Issue #5 — Guest activity launch path — **ACCEPTED / CLOSED**
 6. Issue #6 — Per-instance filesystem/IO isolation — **ACCEPTED / MERGED**
 7. Issue #7 — Provider isolation/routing — **ACCEPTED / MERGED**
-8. Issue #8 — Per-instance notification translation — **CURRENT / READY**
-9. Issue #9 — Alice/Bob v0.1 integration acceptance — WAITING
+8. Issue #8 — Per-instance notification translation — **ACCEPTED / CLOSED**
+9. Issue #9 — Alice/Bob v0.1 integration acceptance — **CURRENT / READY**
 
 ## Engineering OS status
 
@@ -91,7 +91,7 @@ It should remain owner-facing and reconstruct:
 
 ## Current blockers
 
-Product: **NONE for Issue #8 dispatch.**
+Product: **NONE for Issue #9 acceptance execution.**
 
 ## Owner decision required?
 
