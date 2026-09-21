@@ -24,25 +24,112 @@ else
   echo "Exact-count guard rejected OK (0 tests) as required"
 fi
 
+validate_missing_method_probe() {
+  local adb_status="$1"
+  local evidence="$2"
+
+  if [ "$adb_status" -ne 0 ]; then
+    echo "PROBE_REJECT_ADB_FAILURE status=$adb_status" >&2
+    return 21
+  fi
+
+  if [ ! -s "$evidence" ]; then
+    echo "PROBE_REJECT_EMPTY_OUTPUT" >&2
+    return 22
+  fi
+
+  if ! grep -Fxq 'OK (0 tests)' "$evidence"; then
+    echo "PROBE_REJECT_UNEXPECTED_OUTPUT" >&2
+    return 23
+  fi
+
+  echo "PROBE_ACCEPT_EXPLICIT_ZERO_TESTS"
+  return 0
+}
+
+assert_probe_validator_rejects() {
+  local expected_status="$1"
+  local adb_status="$2"
+  local evidence="$3"
+  local expected_reason="$4"
+  local label="$5"
+  local validator_output
+  local observed_status
+
+  set +e
+  validator_output="$(validate_missing_method_probe "$adb_status" "$evidence" 2>&1)"
+  observed_status=$?
+  set -e
+
+  printf '%s\n' "$validator_output"
+
+  if [ "$observed_status" -ne "$expected_status" ]; then
+    echo "ERROR: probe validator negative control $label returned $observed_status, expected $expected_status" >&2
+    exit 1
+  fi
+
+  if ! grep -Fq "$expected_reason" <<< "$validator_output"; then
+    echo "ERROR: probe validator negative control $label did not match expected reason $expected_reason" >&2
+    exit 1
+  fi
+
+  echo "PROBE_VALIDATOR_NEGATIVE_CONTROL label=$label expected_status=$expected_status observed_status=$observed_status reason=$expected_reason PASSED"
+}
+
+: > ci-artifacts/evidence/probe-empty-output.txt
+printf 'OK (0 tests)\n' > ci-artifacts/evidence/probe-adb-failure.txt
+printf 'OK (2 tests)\n' > ci-artifacts/evidence/probe-unexpected-output.txt
+
+assert_probe_validator_rejects 22 0 ci-artifacts/evidence/probe-empty-output.txt PROBE_REJECT_EMPTY_OUTPUT empty-output
+assert_probe_validator_rejects 21 7 ci-artifacts/evidence/probe-adb-failure.txt PROBE_REJECT_ADB_FAILURE adb-failure
+assert_probe_validator_rejects 23 0 ci-artifacts/evidence/probe-unexpected-output.txt PROBE_REJECT_UNEXPECTED_OUTPUT unexpected-output
+
 adb install -r ci-artifacts/cloneapp/app-debug.apk
 adb install -r ci-artifacts/cloneapp-test/app-debug-androidTest.apk
 adb install -r ci-artifacts/testapp/testapp-debug.apk
 adb install -r ci-artifacts/testapp-test/testapp-debug-androidTest.apk
 
-# Guard proof: a nonexistent filtered test method must never be accepted as execution evidence.
-# This expected-negative probe is wrapped so the lane itself remains green only when the guard rejects it.
+# Guard proof: a nonexistent filtered test method must produce AndroidJUnitRunner's
+# explicit zero-test result. Empty output, adb/instrumentation failure, or unexpected
+# output are independently validated as RED conditions above.
+set +e
 adb shell am instrument -w -r \
   -e class 'com.cloneapp.testapp.StorageIsolationRuntimeTest#__missing_method_guard_probe__' \
   com.cloneapp.testapp.test/androidx.test.runner.AndroidJUnitRunner \
-  | tee ci-artifacts/evidence/instrumentation-missing-method-probe.txt || true
+  | tee ci-artifacts/evidence/instrumentation-missing-method-probe.txt
+missing_method_adb_status=${PIPESTATUS[0]}
+set -e
 
-if bash ci/assert-single-instrumentation-test.sh \
-  ci-artifacts/evidence/instrumentation-missing-method-probe.txt; then
-  echo "ERROR: exact-count guard accepted a nonexistent filtered test method" >&2
+echo "PROBE_ADB_STATUS=$missing_method_adb_status"
+validate_missing_method_probe \
+  "$missing_method_adb_status" \
+  ci-artifacts/evidence/instrumentation-missing-method-probe.txt
+
+set +e
+guard_output="$(bash ci/assert-single-instrumentation-test.sh \
+  ci-artifacts/evidence/instrumentation-missing-method-probe.txt 2>&1)"
+guard_status=$?
+set -e
+
+printf '%s\n' "$guard_output"
+
+if [ "$guard_status" -ne 1 ]; then
+  echo "ERROR: exact-count guard returned $guard_status for explicit OK (0 tests); expected rejection status 1" >&2
   exit 1
-else
-  echo "Exact-count guard rejected nonexistent filtered test method as required"
 fi
+
+expected_guard_reason='expected exactly one executed passing test (OK (1 test)): ci-artifacts/evidence/instrumentation-missing-method-probe.txt'
+if ! grep -Fqx "$expected_guard_reason" <<< "$guard_output"; then
+  echo "ERROR: exact-count guard did not reject for the expected exact-one-test reason" >&2
+  exit 1
+fi
+
+if ! grep -Fxq 'OK (0 tests)' <<< "$guard_output"; then
+  echo "ERROR: exact-count guard rejection diagnostic did not preserve the observed OK (0 tests)" >&2
+  exit 1
+fi
+
+echo "HARNESS_MATCHED_GUARD_REASON=ZERO_TESTS guard_status=$guard_status reason=$expected_guard_reason"
 
 adb shell am force-stop com.cloneapp.ca || true
 adb shell am start -W -n com.cloneapp.ca/.MainActivity
@@ -118,6 +205,7 @@ adb shell am instrument -w -r \
   | tee ci-artifacts/evidence/provider-isolation-instrumentation.txt
 
 bash ci/assert-single-instrumentation-test.sh ci-artifacts/evidence/provider-isolation-instrumentation.txt
+echo "GUARD_POSITIVE_CONTROL_ACCEPTED file=ci-artifacts/evidence/provider-isolation-instrumentation.txt expected=OK (1 test)"
 
 adb shell am force-stop com.cloneapp.ca || true
 adb shell am instrument -w -r \
