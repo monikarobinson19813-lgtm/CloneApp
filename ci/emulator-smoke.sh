@@ -29,19 +29,33 @@ adb install -r ci-artifacts/cloneapp-test/app-debug-androidTest.apk
 adb install -r ci-artifacts/testapp/testapp-debug.apk
 adb install -r ci-artifacts/testapp-test/testapp-debug-androidTest.apk
 
-# Guard proof: a nonexistent filtered test method must never be accepted as execution evidence.
-# This expected-negative probe is wrapped so the lane itself remains green only when the guard rejects it.
+# Guard proof: a nonexistent filtered test method must produce AndroidJUnitRunner's
+# explicit zero-test result. Empty output, adb/instrumentation failure, or any other
+# result is a probe failure (RED), not an expected rejection.
+set +e
 adb shell am instrument -w -r \
   -e class 'com.cloneapp.testapp.StorageIsolationRuntimeTest#__missing_method_guard_probe__' \
   com.cloneapp.testapp.test/androidx.test.runner.AndroidJUnitRunner \
-  | tee ci-artifacts/evidence/instrumentation-missing-method-probe.txt || true
+  | tee ci-artifacts/evidence/instrumentation-missing-method-probe.txt
+missing_method_adb_status=${PIPESTATUS[0]}
+set -e
+
+if [ "$missing_method_adb_status" -ne 0 ]; then
+  echo "ERROR: nonexistent-method probe adb/instrumentation command failed with status $missing_method_adb_status" >&2
+  exit 1
+fi
+
+if ! grep -Fxq 'OK (0 tests)' ci-artifacts/evidence/instrumentation-missing-method-probe.txt; then
+  echo "ERROR: nonexistent-method probe did not explicitly produce OK (0 tests)" >&2
+  exit 1
+fi
 
 if bash ci/assert-single-instrumentation-test.sh \
   ci-artifacts/evidence/instrumentation-missing-method-probe.txt; then
   echo "ERROR: exact-count guard accepted a nonexistent filtered test method" >&2
   exit 1
 else
-  echo "Exact-count guard rejected nonexistent filtered test method as required"
+  echo "Exact-count guard rejected explicit OK (0 tests) nonexistent-method probe as required"
 fi
 
 adb shell am force-stop com.cloneapp.ca || true
