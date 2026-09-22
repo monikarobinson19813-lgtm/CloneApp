@@ -82,7 +82,7 @@ Required isolation qualifier:
 | Provider state | A-only | B-only | ✅ | ProviderIsolationRuntimeTest; 0.280s |
 | Provider routing | Alice virtual authority | Bob virtual authority | ✅ | ProviderAuthorityRoutingRuntimeTest; 0.837s |
 | Notification identity | Alice | Bob | ✅ | NotificationTranslationRuntimeTest; 0.212s |
-| Process kill recovery | lifecycle/death reconciled | lifecycle/death reconciled | ✅ | GuestProcessHostRuntimeTest; 1.235s |
+| Process death bookkeeping | lifecycle/death reconciled | lifecycle/death reconciled | ✅ | GuestProcessHostRuntimeTest; 1.235s |
 | CA restart | persisted controlled state | persisted controlled state | ✅ | import/metadata/registry/storage persistence tests in Run `35691541115` |
 | Device reboot | current-main physical run pending | current-main physical run pending | ⬜ | Final #55 physical-device gate |
 | Delete A | deleted | untouched | ✅ | Storage + provider deletion assertions |

@@ -8,6 +8,7 @@ import android.net.Uri
 import android.os.ParcelFileDescriptor
 import android.provider.OpenableColumns
 import java.io.File
+import java.io.FileNotFoundException
 
 class FixtureApkProvider : ContentProvider() {
     override fun onCreate(): Boolean = true
@@ -22,16 +23,18 @@ class FixtureApkProvider : ContentProvider() {
         val columns = projection?.map { it }?.toTypedArray()
             ?: arrayOf(OpenableColumns.DISPLAY_NAME, OpenableColumns.SIZE)
         val cursor = MatrixCursor(columns)
-        val file = fileFor(uri)
+        val unreadable = uri.lastPathSegment == UNREADABLE_PATH
+        val file = if (unreadable) null else fileFor(uri)
         val displayName = when (uri.lastPathSegment) {
             INVALID_PATH -> INVALID_APK_NAME
+            UNREADABLE_PATH -> UNREADABLE_APK_NAME
             else -> SOURCE_APK_NAME
         }
         val row = cursor.newRow()
         columns.forEach { column ->
             when (column) {
                 OpenableColumns.DISPLAY_NAME -> row.add(displayName)
-                OpenableColumns.SIZE -> row.add(file.length())
+                OpenableColumns.SIZE -> row.add(file?.length() ?: 0L)
                 else -> row.add(null)
             }
         }
@@ -40,8 +43,12 @@ class FixtureApkProvider : ContentProvider() {
 
     override fun getType(uri: Uri): String = APK_MIME_TYPE
 
-    override fun openFile(uri: Uri, mode: String): ParcelFileDescriptor =
-        ParcelFileDescriptor.open(fileFor(uri), ParcelFileDescriptor.MODE_READ_ONLY)
+    override fun openFile(uri: Uri, mode: String): ParcelFileDescriptor {
+        if (uri.lastPathSegment == UNREADABLE_PATH) {
+            throw FileNotFoundException("Deliberately unreadable fixture")
+        }
+        return ParcelFileDescriptor.open(fileFor(uri), ParcelFileDescriptor.MODE_READ_ONLY)
+    }
 
     override fun insert(uri: Uri, values: ContentValues?): Uri? =
         throw UnsupportedOperationException("Fixture provider is read-only")
@@ -78,11 +85,14 @@ class FixtureApkProvider : ContentProvider() {
         private const val TEST_APP_PACKAGE = "com.cloneapp.testapp"
         private const val VALID_PATH = "valid"
         private const val INVALID_PATH = "invalid"
+        private const val UNREADABLE_PATH = "unreadable"
         private const val SOURCE_APK_NAME = "CA-Test-App-debug.apk"
         private const val INVALID_APK_NAME = "Invalid-Guest.apk"
+        private const val UNREADABLE_APK_NAME = "Unreadable-Guest.apk"
         private const val APK_MIME_TYPE = "application/vnd.android.package-archive"
 
         fun validApkUri(): Uri = Uri.parse("content://$AUTHORITY/$VALID_PATH")
         fun invalidApkUri(): Uri = Uri.parse("content://$AUTHORITY/$INVALID_PATH")
+        fun unreadableApkUri(): Uri = Uri.parse("content://$AUTHORITY/$UNREADABLE_PATH")
     }
 }

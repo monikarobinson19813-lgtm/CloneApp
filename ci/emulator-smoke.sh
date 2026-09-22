@@ -177,6 +177,13 @@ adb shell am instrument -w -r \
 
 assert_single_test_evidence ci-artifacts/evidence/apk-metadata-components-instrumentation.txt
 
+adb shell am instrument -w -r \
+  -e class 'com.cloneapp.ca.ApkImportRuntimeTest#importedApkMetadataReportsDeclaredNativeAbiAndLibraryEntries' \
+  com.cloneapp.ca.test/androidx.test.runner.AndroidJUnitRunner \
+  | tee ci-artifacts/evidence/apk-metadata-native-instrumentation.txt
+
+assert_single_test_evidence ci-artifacts/evidence/apk-metadata-native-instrumentation.txt
+
 adb shell am instrument -w -r   -e class 'com.cloneapp.ca.ApkImportRuntimeTest#metadataParseFailureIsExplicitAndNonCrashing'   com.cloneapp.ca.test/androidx.test.runner.AndroidJUnitRunner   | tee ci-artifacts/evidence/apk-metadata-failure-instrumentation.txt
 
 assert_single_test_evidence ci-artifacts/evidence/apk-metadata-failure-instrumentation.txt
@@ -184,6 +191,13 @@ assert_single_test_evidence ci-artifacts/evidence/apk-metadata-failure-instrumen
 adb shell am instrument -w -r   -e class 'com.cloneapp.ca.ApkImportRuntimeTest#invalidApkShowsVisibleErrorWithoutCrash'   com.cloneapp.ca.test/androidx.test.runner.AndroidJUnitRunner   | tee ci-artifacts/evidence/apk-import-invalid-instrumentation.txt
 
 assert_single_test_evidence ci-artifacts/evidence/apk-import-invalid-instrumentation.txt
+
+adb shell am instrument -w -r \
+  -e class 'com.cloneapp.ca.ApkImportRuntimeTest#unreadableApkShowsVisibleErrorWithoutCrash' \
+  com.cloneapp.ca.test/androidx.test.runner.AndroidJUnitRunner \
+  | tee ci-artifacts/evidence/apk-import-unreadable-instrumentation.txt
+
+assert_single_test_evidence ci-artifacts/evidence/apk-import-unreadable-instrumentation.txt
 
 adb shell am instrument -w -r   -e class 'com.cloneapp.ca.VirtualPackageRegistryRuntimeTest#aliceAndBobShareBasePackageButKeepSeparateVirtualInstances'   com.cloneapp.ca.test/androidx.test.runner.AndroidJUnitRunner   | tee ci-artifacts/evidence/virtual-package-registry-instrumentation.txt
 
