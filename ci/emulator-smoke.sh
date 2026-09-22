@@ -209,6 +209,15 @@ echo "GUARD_POSITIVE_CONTROL_ACCEPTED file=ci-artifacts/evidence/provider-isolat
 
 adb shell am force-stop com.cloneapp.ca || true
 adb shell am instrument -w -r \
+  -e class 'com.cloneapp.ca.ProviderAuthorityRoutingRuntimeTest#aliceAndBobUseDistinctVirtualAuthoritiesAndRouteToIsolatedPhysicalProviderState' \
+  com.cloneapp.ca.test/androidx.test.runner.AndroidJUnitRunner \
+  | tee ci-artifacts/evidence/provider-authority-routing-instrumentation.txt
+
+bash ci/assert-single-instrumentation-test.sh ci-artifacts/evidence/provider-authority-routing-instrumentation.txt
+echo "GUARD_POSITIVE_CONTROL_ACCEPTED file=ci-artifacts/evidence/provider-authority-routing-instrumentation.txt expected=OK (1 test)"
+
+adb shell am force-stop com.cloneapp.ca || true
+adb shell am instrument -w -r \
   -e class 'com.cloneapp.ca.NotificationTranslationRuntimeTest#aliceAndBobPostIndependentlyWithVisibleInstanceIdentityAndLifecycle' \
   com.cloneapp.ca.test/androidx.test.runner.AndroidJUnitRunner \
   | tee ci-artifacts/evidence/notification-translation-instrumentation.txt
@@ -228,4 +237,4 @@ adb shell pm path com.cloneapp.testapp > ci-artifacts/evidence/testapp-package-p
 grep -q "package:" ci-artifacts/evidence/cloneapp-package-path.txt
 grep -q "package:" ci-artifacts/evidence/testapp-package-path.txt
 
-echo "CloneApp emulator smoke + import + metadata + virtual registry + stub process + controlled guest activity launch + private storage isolation + controlled provider isolation + notification translation acceptance PASS" | tee ci-artifacts/evidence/result.txt
+echo "CloneApp emulator smoke + import + metadata + virtual registry + stub process + controlled guest activity launch + private storage isolation + controlled provider isolation + provider authority routing + notification translation acceptance PASS" | tee ci-artifacts/evidence/result.txt
