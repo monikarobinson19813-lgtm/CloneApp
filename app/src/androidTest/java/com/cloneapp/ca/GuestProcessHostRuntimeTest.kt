@@ -76,6 +76,31 @@ class GuestProcessHostRuntimeTest {
         assertEquals(GuestProcessState.DEAD, bobAfterDeath.state)
     }
 
+    @Test
+    fun guestProcessCanRestartAfterDeathWithSameVirtualIdentity() {
+        clearProcessState()
+        val firstHost = GuestProcessHost(context)
+        val first = startAndAwait(firstHost, "Alice")
+        val firstPid = requireNotNull(first.pid)
+
+        Process.killProcess(firstPid)
+        waitForPidToDisappear(firstPid)
+
+        val deadRecord = GuestProcessHost(context)
+            .reconcileLiveness()
+            .single { it.packageName == "com.cloneapp.testapp" && it.virtualUserId == "Alice" }
+        assertEquals(GuestProcessState.DEAD, deadRecord.state)
+
+        val recovered = startAndAwait(GuestProcessHost(context), "Alice")
+        assertEquals("Alice", recovered.virtualUserId)
+        assertEquals(GuestProcessState.RUNNING, recovered.state)
+        assertNotNull(recovered.pid)
+        assertTrue(
+            "Recovered guest must run in the CA-owned guest stub process",
+            recovered.processName.orEmpty().endsWith(":gueststub"),
+        )
+    }
+
     private fun startAndAwait(host: GuestProcessHost, virtualUserId: String): GuestProcessRecord {
         val latch = CountDownLatch(1)
         var result: Result<GuestProcessRecord>? = null
