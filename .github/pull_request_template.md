@@ -1,6 +1,6 @@
 ## Issue
 
-Closes #
+Refs #
 
 ## Objective
 

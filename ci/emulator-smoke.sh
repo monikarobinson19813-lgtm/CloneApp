@@ -12,6 +12,12 @@ capture_evidence() {
 }
 trap capture_evidence EXIT
 
+assert_single_test_evidence() {
+  local evidence="$1"
+  bash ci/assert-single-instrumentation-test.sh "$evidence"
+  echo "GUARD_POSITIVE_CONTROL_ACCEPTED file=$evidence expected=OK (1 test)"
+}
+
 adb wait-for-device
 adb shell getprop sys.boot_completed | grep -q "1"
 
@@ -139,7 +145,7 @@ test -s ci-artifacts/evidence/cloneapp-pid.txt
 
 adb shell am instrument -w -r   -e class 'com.cloneapp.ca.ApkImportRuntimeTest#importApkThroughDocumentPickerContract'   com.cloneapp.ca.test/androidx.test.runner.AndroidJUnitRunner   | tee ci-artifacts/evidence/apk-import-instrumentation.txt
 
-bash ci/assert-single-instrumentation-test.sh ci-artifacts/evidence/apk-import-instrumentation.txt
+assert_single_test_evidence ci-artifacts/evidence/apk-import-instrumentation.txt
 adb exec-out screencap -p > ci-artifacts/evidence/apk-import-after.png || true
 adb shell run-as com.cloneapp.ca cat shared_prefs/ca_guest_apks.xml   > ci-artifacts/evidence/apk-import-record.xml
 adb shell run-as com.cloneapp.ca ls -l files/guest-apks   > ci-artifacts/evidence/apk-import-private-files.txt
@@ -150,35 +156,49 @@ sleep 2
 
 adb shell am instrument -w -r   -e class 'com.cloneapp.ca.ApkImportRuntimeTest#importedApkRecordSurvivesRelaunch'   com.cloneapp.ca.test/androidx.test.runner.AndroidJUnitRunner   | tee ci-artifacts/evidence/apk-import-relaunch-instrumentation.txt
 
-bash ci/assert-single-instrumentation-test.sh ci-artifacts/evidence/apk-import-relaunch-instrumentation.txt
+assert_single_test_evidence ci-artifacts/evidence/apk-import-relaunch-instrumentation.txt
 adb exec-out screencap -p > ci-artifacts/evidence/apk-import-after-relaunch.png || true
+
+adb shell am instrument -w -r \
+  -e class 'com.cloneapp.ca.ApkImportRuntimeTest#importedApkPreservesOriginalPackageIdentityAndSigningCertificate' \
+  com.cloneapp.ca.test/androidx.test.runner.AndroidJUnitRunner \
+  | tee ci-artifacts/evidence/apk-import-integrity-instrumentation.txt
+
+assert_single_test_evidence ci-artifacts/evidence/apk-import-integrity-instrumentation.txt
 
 adb shell am instrument -w -r   -e class 'com.cloneapp.ca.ApkImportRuntimeTest#importedApkMetadataMatchesFixtureAndSurvivesRestart'   com.cloneapp.ca.test/androidx.test.runner.AndroidJUnitRunner   | tee ci-artifacts/evidence/apk-metadata-instrumentation.txt
 
-bash ci/assert-single-instrumentation-test.sh ci-artifacts/evidence/apk-metadata-instrumentation.txt
+assert_single_test_evidence ci-artifacts/evidence/apk-metadata-instrumentation.txt
+
+adb shell am instrument -w -r \
+  -e class 'com.cloneapp.ca.ApkImportRuntimeTest#importedApkMetadataRepresentsEveryDeclaredComponentCategory' \
+  com.cloneapp.ca.test/androidx.test.runner.AndroidJUnitRunner \
+  | tee ci-artifacts/evidence/apk-metadata-components-instrumentation.txt
+
+assert_single_test_evidence ci-artifacts/evidence/apk-metadata-components-instrumentation.txt
 
 adb shell am instrument -w -r   -e class 'com.cloneapp.ca.ApkImportRuntimeTest#metadataParseFailureIsExplicitAndNonCrashing'   com.cloneapp.ca.test/androidx.test.runner.AndroidJUnitRunner   | tee ci-artifacts/evidence/apk-metadata-failure-instrumentation.txt
 
-bash ci/assert-single-instrumentation-test.sh ci-artifacts/evidence/apk-metadata-failure-instrumentation.txt
+assert_single_test_evidence ci-artifacts/evidence/apk-metadata-failure-instrumentation.txt
 
 adb shell am instrument -w -r   -e class 'com.cloneapp.ca.ApkImportRuntimeTest#invalidApkShowsVisibleErrorWithoutCrash'   com.cloneapp.ca.test/androidx.test.runner.AndroidJUnitRunner   | tee ci-artifacts/evidence/apk-import-invalid-instrumentation.txt
 
-bash ci/assert-single-instrumentation-test.sh ci-artifacts/evidence/apk-import-invalid-instrumentation.txt
+assert_single_test_evidence ci-artifacts/evidence/apk-import-invalid-instrumentation.txt
 
 adb shell am instrument -w -r   -e class 'com.cloneapp.ca.VirtualPackageRegistryRuntimeTest#aliceAndBobShareBasePackageButKeepSeparateVirtualInstances'   com.cloneapp.ca.test/androidx.test.runner.AndroidJUnitRunner   | tee ci-artifacts/evidence/virtual-package-registry-instrumentation.txt
 
-bash ci/assert-single-instrumentation-test.sh ci-artifacts/evidence/virtual-package-registry-instrumentation.txt
+assert_single_test_evidence ci-artifacts/evidence/virtual-package-registry-instrumentation.txt
 
 adb shell am instrument -w -r   -e class 'com.cloneapp.ca.GuestProcessHostRuntimeTest#aliceAndBobReceiveDistinctVirtualIdentityAndDeathIsBookkept'   com.cloneapp.ca.test/androidx.test.runner.AndroidJUnitRunner   | tee ci-artifacts/evidence/guest-process-host-instrumentation.txt
 
-bash ci/assert-single-instrumentation-test.sh ci-artifacts/evidence/guest-process-host-instrumentation.txt
+assert_single_test_evidence ci-artifacts/evidence/guest-process-host-instrumentation.txt
 adb shell dumpsys activity services com.cloneapp.ca > ci-artifacts/evidence/guest-stub-services.txt || true
 
 adb shell am force-stop com.cloneapp.ca || true
 
 adb shell am instrument -w -r   -e class 'com.cloneapp.ca.GuestActivityLaunchRuntimeTest#aliceAndBobLaunchSameImportedGuestWithDistinctVirtualIdentity'   com.cloneapp.ca.test/androidx.test.runner.AndroidJUnitRunner   | tee ci-artifacts/evidence/guest-activity-launch-instrumentation.txt
 
-bash ci/assert-single-instrumentation-test.sh ci-artifacts/evidence/guest-activity-launch-instrumentation.txt
+assert_single_test_evidence ci-artifacts/evidence/guest-activity-launch-instrumentation.txt
 adb shell dumpsys activity activities > ci-artifacts/evidence/guest-activity-launch-activities.txt || true
 
 adb shell am force-stop com.cloneapp.testapp || true
@@ -187,7 +207,7 @@ adb shell am instrument -w -r \
   com.cloneapp.testapp.test/androidx.test.runner.AndroidJUnitRunner \
   | tee ci-artifacts/evidence/storage-isolation-write-instrumentation.txt
 
-bash ci/assert-single-instrumentation-test.sh ci-artifacts/evidence/storage-isolation-write-instrumentation.txt
+assert_single_test_evidence ci-artifacts/evidence/storage-isolation-write-instrumentation.txt
 
 adb shell am force-stop com.cloneapp.testapp || true
 
@@ -196,7 +216,7 @@ adb shell am instrument -w -r \
   com.cloneapp.testapp.test/androidx.test.runner.AndroidJUnitRunner \
   | tee ci-artifacts/evidence/storage-isolation-restart-delete-instrumentation.txt
 
-bash ci/assert-single-instrumentation-test.sh ci-artifacts/evidence/storage-isolation-restart-delete-instrumentation.txt
+assert_single_test_evidence ci-artifacts/evidence/storage-isolation-restart-delete-instrumentation.txt
 
 adb shell am force-stop com.cloneapp.testapp || true
 adb shell am instrument -w -r \
@@ -204,8 +224,7 @@ adb shell am instrument -w -r \
   com.cloneapp.testapp.test/androidx.test.runner.AndroidJUnitRunner \
   | tee ci-artifacts/evidence/provider-isolation-instrumentation.txt
 
-bash ci/assert-single-instrumentation-test.sh ci-artifacts/evidence/provider-isolation-instrumentation.txt
-echo "GUARD_POSITIVE_CONTROL_ACCEPTED file=ci-artifacts/evidence/provider-isolation-instrumentation.txt expected=OK (1 test)"
+assert_single_test_evidence ci-artifacts/evidence/provider-isolation-instrumentation.txt
 
 adb shell am force-stop com.cloneapp.ca || true
 adb shell am instrument -w -r \
@@ -213,8 +232,7 @@ adb shell am instrument -w -r \
   com.cloneapp.ca.test/androidx.test.runner.AndroidJUnitRunner \
   | tee ci-artifacts/evidence/provider-authority-routing-instrumentation.txt
 
-bash ci/assert-single-instrumentation-test.sh ci-artifacts/evidence/provider-authority-routing-instrumentation.txt
-echo "GUARD_POSITIVE_CONTROL_ACCEPTED file=ci-artifacts/evidence/provider-authority-routing-instrumentation.txt expected=OK (1 test)"
+assert_single_test_evidence ci-artifacts/evidence/provider-authority-routing-instrumentation.txt
 
 adb shell am force-stop com.cloneapp.ca || true
 adb shell am instrument -w -r \
@@ -222,7 +240,7 @@ adb shell am instrument -w -r \
   com.cloneapp.ca.test/androidx.test.runner.AndroidJUnitRunner \
   | tee ci-artifacts/evidence/notification-translation-instrumentation.txt
 
-bash ci/assert-single-instrumentation-test.sh ci-artifacts/evidence/notification-translation-instrumentation.txt
+assert_single_test_evidence ci-artifacts/evidence/notification-translation-instrumentation.txt
 adb shell dumpsys notification --noredact > ci-artifacts/evidence/notification-translation-dumpsys.txt || true
 
 adb shell am force-stop com.cloneapp.testapp || true
