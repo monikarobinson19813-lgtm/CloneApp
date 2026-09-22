@@ -22,6 +22,7 @@ import org.junit.runner.RunWith
 import java.io.File
 import java.security.MessageDigest
 import java.util.zip.ZipEntry
+import java.util.zip.ZipFile
 import java.util.zip.ZipOutputStream
 
 @RunWith(AndroidJUnit4::class)
@@ -150,6 +151,32 @@ class ApkImportRuntimeTest {
     }
 
     @Test
+    fun unreadableApkShowsVisibleErrorWithoutCrash() {
+        clearImportedState()
+        val activity = launchCloneApp()
+
+        val requestedMimeTypes = clickImportWithoutLeavingCloneApp(activity)
+        assertPickerContract(requestedMimeTypes)
+
+        deliverPickerResult(activity, DebugFixtureApkProvider.unreadableApkUri())
+
+        val text = waitForTextContaining(activity, R.id.guestArtifactText, "Import failed:")
+        assertTrue(
+            "Unreadable APK error was not visible: $text",
+            text.contains("Deliberately unreadable fixture")
+        )
+        assertTrue(
+            "Unreadable APK must not create a guest artifact",
+            GuestApkRepository(context).list().isEmpty()
+        )
+        assertEquals(
+            "CloneApp should remain alive after unreadable import",
+            MainActivity::class.java.name,
+            activity.componentName.className
+        )
+    }
+
+    @Test
     fun importedApkMetadataMatchesFixtureAndSurvivesRestart() {
         val artifact = GuestApkRepository(context).list().single()
         val metadata = requireNotNull(artifact.packageMetadata) {
@@ -223,6 +250,55 @@ class ApkImportRuntimeTest {
             "Controlled fixture unexpectedly reports native libraries",
             metadata.nativeLibraries.isEmpty(),
         )
+    }
+
+    @Test
+    fun importedApkMetadataReportsDeclaredNativeAbiAndLibraryEntries() {
+        val sourceApk = File(
+            context.packageManager.getApplicationInfo(TEST_APP_PACKAGE, 0).sourceDir
+        )
+        val nativeFixture = File(context.cacheDir, "native-metadata-fixture.apk")
+
+        try {
+            ZipFile(sourceApk).use { inputZip ->
+                ZipOutputStream(nativeFixture.outputStream()).use { outputZip ->
+                    val entries = inputZip.entries()
+                    while (entries.hasMoreElements()) {
+                        val entry = entries.nextElement()
+                        outputZip.putNextEntry(ZipEntry(entry.name))
+                        if (!entry.isDirectory) {
+                            inputZip.getInputStream(entry).use { input ->
+                                input.copyTo(outputZip)
+                            }
+                        }
+                        outputZip.closeEntry()
+                    }
+
+                    listOf(
+                        "lib/arm64-v8a/libfixture.so",
+                        "lib/x86_64/libfixture.so",
+                    ).forEach { entryName ->
+                        outputZip.putNextEntry(ZipEntry(entryName))
+                        outputZip.write("controlled-native-fixture".toByteArray())
+                        outputZip.closeEntry()
+                    }
+                }
+            }
+
+            val metadata = GuestPackageParser(context).parse(nativeFixture).getOrThrow()
+            assertEquals(
+                "Native ABI metadata missing",
+                listOf("arm64-v8a", "x86_64"),
+                metadata.nativeAbis,
+            )
+            assertEquals(
+                "Native library metadata missing",
+                listOf("libfixture.so"),
+                metadata.nativeLibraries,
+            )
+        } finally {
+            nativeFixture.delete()
+        }
     }
 
     @Test
