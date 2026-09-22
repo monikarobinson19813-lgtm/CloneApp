@@ -1,6 +1,6 @@
 # CloneApp (CA) Compatibility Matrix
 
-_Last updated: 2026-09-19_
+_Last updated: 2026-09-22_
 
 This file records tested compatibility. Do not mark an app compatible until the stated tests have actually passed.
 
@@ -22,11 +22,29 @@ This file records tested compatibility. Do not mark an app compatible until the 
 
 ---
 
+# Current v0.1 evidence basis
+
+- Tested main SHA: `5a0af17056dcb4802e8dda3edcadf415e4e411d1`
+- Android Build Run: `35691541115`
+- Jobs: `build` SUCCESS; `Android 16 emulator smoke` SUCCESS
+- Emulator: Android 16 / API 36 / x86_64 / pixel_7
+- Instrumentation: 15 expected / 15 executed / 15 passed / 0 skipped / 0 failed
+- Every single-method invocation produced `OK (1 test)` and positive exact-count-guard acceptance.
+- Corrected guard ancestry commit `7c162e88b43b3a872a7029c236cd181a68f022ee` is an ancestor of the tested main SHA.
+- Native ARM64 status: **N/A for current source** — no `jniLibs`, `CMakeLists.txt`, `Android.mk`, `.so`, `abiFilters` or `externalNativeBuild` configuration is present in the repository. Binary APK-content confirmation remains pending the final physical-device/package handoff.
+- Final #55 current-SHA physical-device exit remains pending.
+
+Required isolation qualifier:
+
+**Isolation is guest-cooperative: the CA Test App chooses its storage from vUser; CloneApp does not enforce it.**
+
+---
+
 # App Matrix
 
 | App | App version | Android | OEM/device | Engine | Instances | Launch | Login | Prefs/DB/Files | Notifications | FCM | Camera | Mic | Contacts | Media | Background | Reboot | Update | Integrity / secure-env behavior | Tier | Result / notes |
 |---|---|---|---|---|---:|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|
-| CA Test App | current repo build | TBD | TBD | Virtual | 2 | ⬜ | N/A | ⬜ | ⬜ | N/A | N/A | N/A | N/A | N/A | ⬜ | ⬜ | ⬜ | N/A | TBD | v0.1 target: Alice=10 / Bob=50 |
+| CA Test App | SHA `5a0af170…` | Android 16 / API 36 | pixel_7 x86_64 emulator | Virtual | 2 | ✅ | N/A | ✅ | ✅ | N/A | N/A | N/A | N/A | N/A | ⚠️ | ⬜ | ⬜ | N/A | TBD | Run `35691541115`; controlled Test App only; current-SHA physical exit pending |
 | Simple third-party app | TBD | TBD | TBD | Virtual | 2 | ⬜ | ⬜ | ⬜ | ⬜ | TBD | TBD | TBD | TBD | TBD | ⬜ | ⬜ | ⬜ | TBD | TBD | Select after v0.1 GREEN |
 | Firebase/FCM controlled app | internal test build | TBD | TBD | Virtual | 2 | ⬜ | TBD | ⬜ | ⬜ | ⬜ | N/A | N/A | N/A | N/A | ⬜ | ⬜ | ⬜ | TBD | TBD | Controlled push identity test |
 | WhatsApp | TBD | TBD | TBD | Virtual | 2 | ⬜ | ⬜ | ⬜ | ⬜ | ⬜ | ⬜ | ⬜ | ⬜ | ⬜ | ⬜ | ⬜ | ⬜ | ⬜ | TBD | Test only after controlled POCs |
@@ -42,11 +60,11 @@ This file records tested compatibility. Do not mark an app compatible until the 
 
 | Android | Device/OEM | CA build | Test App x2 | Third-party x2 | FCM x2 | WhatsApp x2 | Notes |
 |---|---|---|---|---|---|---|---|
-| Android 16 | Pixel reference device | TBD | ⬜ | ⬜ | ⬜ | ⬜ | First reference target |
+| Android 16 / API 36 | pixel_7 x86_64 emulator | `5a0af170…` / Run `35691541115` | ✅ | ⬜ | ⬜ | ⬜ | Current main emulator acceptance basis |
 | Android 16 | Samsung | TBD | ⬜ | ⬜ | ⬜ | ⬜ | Second reference target |
 | Android 16 | OnePlus | TBD | ⬜ | ⬜ | ⬜ | ⬜ | Third validation target |
 | Android 15 | Pixel/Samsung/OnePlus | TBD | ⬜ | ⬜ | ⬜ | ⬜ | Later regression |
-| Android 14 | Pixel/Samsung/OnePlus | TBD | ⬜ | ⬜ | ⬜ | ⬜ | Later regression |
+| Android 14 | OnePlus NE2211 | historical SHA `6df51068…` / Run `35678438293` | ✅ | ⬜ | ⬜ | ⬜ | Historical D9 physical PASS; not the final current-main #55 basis |
 | Android 13 | Pixel/Samsung/OnePlus | TBD | ⬜ | ⬜ | ⬜ | ⬜ | minSdk regression |
 
 ---
@@ -55,19 +73,20 @@ This file records tested compatibility. Do not mark an app compatible until the 
 
 | Test | Instance A | Instance B | Status | Evidence / notes |
 |---|---|---|---|---|
-| Display name | Alice | Bob | ⬜ | |
-| Counter | 10 | 50 | ⬜ | |
-| SharedPreferences | Alice/10 | Bob/50 | ⬜ | |
-| SQLite | Alice/10 | Bob/50 | ⬜ | |
-| Internal file | Alice/10 | Bob/50 | ⬜ | |
-| Cache | A marker | B marker | ⬜ | |
-| Provider state | A-only | B-only | ⬜ | |
-| Notification identity | Alice | Bob | ⬜ | |
-| Process kill recovery | restore | restore | ⬜ | |
-| CA restart | restore | restore | ⬜ | |
-| Device reboot | restore | restore | ⬜ | |
-| Delete A | deleted | untouched | ⬜ | |
-| Native library probe | pass | pass | ⬜ | |
+| Display name | Alice | Bob | ✅ | Run `35691541115`; guest launch + virtual identity |
+| Counter | 10 | 50 | ✅ | StorageIsolationRuntimeTest; 0.168s |
+| SharedPreferences | Alice/10 | Bob/50 | ✅ | StorageIsolationRuntimeTest; 0.168s |
+| SQLite | Alice/10 | Bob/50 | ✅ | StorageIsolationRuntimeTest; 0.168s |
+| Internal file | Alice/10 | Bob/50 | ✅ | StorageIsolationRuntimeTest; 0.168s |
+| Cache | Alice/10 | Bob/50 | ✅ | StorageIsolationRuntimeTest; 0.168s |
+| Provider state | A-only | B-only | ✅ | ProviderIsolationRuntimeTest; 0.280s |
+| Provider routing | Alice virtual authority | Bob virtual authority | ✅ | ProviderAuthorityRoutingRuntimeTest; 0.837s |
+| Notification identity | Alice | Bob | ✅ | NotificationTranslationRuntimeTest; 0.212s |
+| Process kill recovery | lifecycle/death reconciled | lifecycle/death reconciled | ✅ | GuestProcessHostRuntimeTest; 1.235s |
+| CA restart | persisted controlled state | persisted controlled state | ✅ | import/metadata/registry/storage persistence tests in Run `35691541115` |
+| Device reboot | current-main physical run pending | current-main physical run pending | ⬜ | Final #55 physical-device gate |
+| Delete A | deleted | untouched | ✅ | Storage + provider deletion assertions |
+| Native ARM64 probe | N/A | N/A | N/A | No native build/library configuration found in repo source; APK-content confirmation pending handoff |
 
 ---
 
