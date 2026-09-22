@@ -10,6 +10,12 @@
                 <category android:name="android.intent.category.LAUNCHER" />
             </intent-filter>
         </activity>
+        <service
+            android:name=".ControlledStateService"
+            android:exported="false" />
+        <receiver
+            android:name=".ControlledStateReceiver"
+            android:exported="false" />
         <provider
             android:name=".ControlledStateProvider"
             android:authorities="com.cloneapp.testapp.state"
