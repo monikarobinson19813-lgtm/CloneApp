@@ -31,7 +31,7 @@ This file records tested compatibility. Do not mark an app compatible until the 
 - Instrumentation: 15 expected / 15 executed / 15 passed / 0 skipped / 0 failed
 - Every single-method invocation produced `OK (1 test)` and positive exact-count-guard acceptance.
 - Corrected guard ancestry commit `7c162e88b43b3a872a7029c236cd181a68f022ee` is an ancestor of the tested main SHA.
-- Native ARM64 status: **N/A for current source** — no `jniLibs`, `CMakeLists.txt`, `Android.mk`, `.so`, `abiFilters` or `externalNativeBuild` configuration is present in the repository. Binary APK-content confirmation remains pending the final physical-device/package handoff.
+- Native ARM64 APK-content status: **N/A for these APKs** — demonstrated from Run `35809965282` / SHA `9d024b7b1fb37469cc95a7c8ef23d29ad31c0c4d` artifacts. Actual ZIP listings of CloneApp `app-debug.apk` (artifact `10729208466`, APK SHA-256 `2c0fdd03eacb2b3afb08135b642a497399c8608916bd3c0438fe7b2389b3b080`) and CA Test App `testapp-debug.apk` (artifact `10729496558`, APK SHA-256 `124efd0ecc2da4469e70e485070209b1aaba42aa6d14377e977d1a4d30c4cffa`) contain **zero `lib/` entries**. Therefore these APKs bundle no native `.so` payload to execute; this does not demonstrate native ARM64 code execution.
 - Final #55 current-SHA physical-device exit remains pending.
 
 Required isolation qualifier:
@@ -87,7 +87,7 @@ Required isolation qualifier:
 | Emulator reboot (API 36 x86_64) | persisted controlled state | persisted controlled state | ✅ | Run `35809965282`; `adb reboot`; emulator runner independently logged `Boot completed in 28519 ms`; post-reboot guarded storage test passed |
 | Device reboot | current-main physical run pending | current-main physical run pending | ⬜ | Final #55 physical-device gate |
 | Delete A | deleted | untouched | ✅ | Storage + provider deletion assertions |
-| Native ARM64 probe | N/A | N/A | N/A | No native build/library configuration found in repo source; APK-content confirmation pending handoff |
+| Native ARM64 probe | N/A | N/A | N/A | Demonstrated APK-content evidence from Run `35809965282`: actual `app-debug.apk` and `testapp-debug.apk` ZIP listings contain zero `lib/` entries; no bundled native `.so` payload exists in these APKs, so native ARM64 execution is not demonstrated |
 
 ---
 
