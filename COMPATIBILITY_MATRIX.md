@@ -84,6 +84,7 @@ Required isolation qualifier:
 | Notification identity | Alice | Bob | ✅ | NotificationTranslationRuntimeTest; 0.212s |
 | Process death bookkeeping | lifecycle/death reconciled | lifecycle/death reconciled | ✅ | GuestProcessHostRuntimeTest; 1.235s |
 | CA restart | persisted controlled state | persisted controlled state | ✅ | import/metadata/registry/storage persistence tests in Run `35691541115` |
+| Emulator reboot (API 36 x86_64) | persisted controlled state | persisted controlled state | ✅ | Run `35809965282`; `adb reboot`; emulator runner independently logged `Boot completed in 28519 ms`; post-reboot guarded storage test passed |
 | Device reboot | current-main physical run pending | current-main physical run pending | ⬜ | Final #55 physical-device gate |
 | Delete A | deleted | untouched | ✅ | Storage + provider deletion assertions |
 | Native ARM64 probe | N/A | N/A | N/A | No native build/library configuration found in repo source; APK-content confirmation pending handoff |
