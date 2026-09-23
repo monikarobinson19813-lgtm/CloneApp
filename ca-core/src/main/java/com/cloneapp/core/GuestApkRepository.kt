@@ -153,7 +153,7 @@ class GuestApkRepository(private val context: Context) {
         val parent = file.parentFile ?: return
         val parentFd = Os.open(
             parent.absolutePath,
-            OsConstants.O_RDONLY or OsConstants.O_DIRECTORY,
+            OsConstants.O_RDONLY,
             0,
         )
         try {
