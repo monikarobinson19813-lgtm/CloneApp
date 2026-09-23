@@ -106,6 +106,33 @@ class GuestActivityLaunchRuntimeTest {
         )
     }
 
+    @Test
+    fun aliceAndBobLaunchDiagnosticsSurviveCaRestart() {
+        val repository = GuestApkRepository(context)
+        val artifact = repository.list().single {
+            it.packageMetadata?.packageName == "com.cloneapp.testapp"
+        }
+
+        val registry = PrototypeInstanceRegistry(context)
+        val alice = registry.list().single { it.displayName == "Alice" }
+        val bob = registry.list().single { it.displayName == "Bob" }
+        assertNotEquals(alice.virtualUserId, bob.virtualUserId)
+
+        val coordinator = GuestLaunchCoordinator(context)
+        val aliceLaunch = requireNotNull(coordinator.lastLaunch("Alice")) {
+            "Alice launch diagnostics missing after CA restart"
+        }
+        val bobLaunch = requireNotNull(coordinator.lastLaunch("Bob")) {
+            "Bob launch diagnostics missing after CA restart"
+        }
+
+        assertEquals(alice.virtualUserId, aliceLaunch.virtualUserId)
+        assertEquals(bob.virtualUserId, bobLaunch.virtualUserId)
+        assertEquals(aliceLaunch.sourceArtifactId, bobLaunch.sourceArtifactId)
+        assertEquals(artifact.sha256, aliceLaunch.sourceSha256)
+        assertEquals(artifact.sha256, bobLaunch.sourceSha256)
+    }
+
     private fun tapLaunchButton(
         scenario: ActivityScenario<MainActivity>,
         resourceId: Int,

@@ -21,6 +21,29 @@ assert_single_test_evidence() {
 adb wait-for-device
 adb shell getprop sys.boot_completed | grep -q "1"
 
+git rev-parse HEAD | tee ci-artifacts/evidence/ca-commit.txt
+{
+  echo "github_sha=${GITHUB_SHA:-unknown}"
+  echo "workflow_run_id=${GITHUB_RUN_ID:-unknown}"
+  echo "workflow_run_number=${GITHUB_RUN_NUMBER:-unknown}"
+  echo "android_release=$(adb shell getprop ro.build.version.release | tr -d '\r')"
+  echo "android_sdk=$(adb shell getprop ro.build.version.sdk | tr -d '\r')"
+  echo "manufacturer=$(adb shell getprop ro.product.manufacturer | tr -d '\r')"
+  echo "model=$(adb shell getprop ro.product.model | tr -d '\r')"
+  echo "device=$(adb shell getprop ro.product.device | tr -d '\r')"
+  echo "abi=$(adb shell getprop ro.product.cpu.abi | tr -d '\r')"
+  echo "abilist=$(adb shell getprop ro.product.cpu.abilist | tr -d '\r')"
+} | tee ci-artifacts/evidence/environment.txt
+
+sha256sum ci-artifacts/testapp/testapp-debug.apk | tee ci-artifacts/evidence/testapp-apk-sha256.txt
+
+primary_abi="$(adb shell getprop ro.product.cpu.abi | tr -d '\r')"
+if [ "$primary_abi" = "arm64-v8a" ]; then
+  echo "NATIVE_ARM64_ENVIRONMENT_AVAILABLE" | tee ci-artifacts/evidence/native-arm64-probe-status.txt
+else
+  echo "NOT_EXECUTED_NATIVE_ARM64_ENVIRONMENT_UNAVAILABLE_PRIMARY_ABI=${primary_abi}" | tee ci-artifacts/evidence/native-arm64-probe-status.txt
+fi
+
 printf 'OK (0 tests)\n' > ci-artifacts/evidence/instrumentation-zero-test-probe.txt
 if bash ci/assert-single-instrumentation-test.sh \
   ci-artifacts/evidence/instrumentation-zero-test-probe.txt; then
@@ -206,6 +229,13 @@ assert_single_test_evidence ci-artifacts/evidence/virtual-package-registry-instr
 adb shell am instrument -w -r   -e class 'com.cloneapp.ca.GuestProcessHostRuntimeTest#aliceAndBobReceiveDistinctVirtualIdentityAndDeathIsBookkept'   com.cloneapp.ca.test/androidx.test.runner.AndroidJUnitRunner   | tee ci-artifacts/evidence/guest-process-host-instrumentation.txt
 
 assert_single_test_evidence ci-artifacts/evidence/guest-process-host-instrumentation.txt
+
+adb shell am instrument -w -r \
+  -e class 'com.cloneapp.ca.GuestProcessHostRuntimeTest#guestProcessCanRestartAfterDeathWithSameVirtualIdentity' \
+  com.cloneapp.ca.test/androidx.test.runner.AndroidJUnitRunner \
+  | tee ci-artifacts/evidence/guest-process-recovery-instrumentation.txt
+
+assert_single_test_evidence ci-artifacts/evidence/guest-process-recovery-instrumentation.txt
 adb shell dumpsys activity services com.cloneapp.ca > ci-artifacts/evidence/guest-stub-services.txt || true
 
 adb shell am force-stop com.cloneapp.ca || true
@@ -215,6 +245,19 @@ adb shell am instrument -w -r   -e class 'com.cloneapp.ca.GuestActivityLaunchRun
 assert_single_test_evidence ci-artifacts/evidence/guest-activity-launch-instrumentation.txt
 adb shell dumpsys activity activities > ci-artifacts/evidence/guest-activity-launch-activities.txt || true
 
+echo "CA_RESTART_BEGIN $(date -u +%Y-%m-%dT%H:%M:%SZ)" | tee ci-artifacts/evidence/ca-restart.txt
+adb shell am force-stop com.cloneapp.ca
+adb shell am start -W -n com.cloneapp.ca/.MainActivity
+sleep 2
+echo "CA_RESTART_COMPLETED $(date -u +%Y-%m-%dT%H:%M:%SZ)" | tee -a ci-artifacts/evidence/ca-restart.txt
+
+adb shell am instrument -w -r \
+  -e class 'com.cloneapp.ca.GuestActivityLaunchRuntimeTest#aliceAndBobLaunchDiagnosticsSurviveCaRestart' \
+  com.cloneapp.ca.test/androidx.test.runner.AndroidJUnitRunner \
+  | tee ci-artifacts/evidence/ca-restart-persistence-instrumentation.txt
+
+assert_single_test_evidence ci-artifacts/evidence/ca-restart-persistence-instrumentation.txt
+
 adb shell am force-stop com.cloneapp.testapp || true
 adb shell am instrument -w -r \
   -e class 'com.cloneapp.testapp.StorageIsolationRuntimeTest#aliceAndBobPrivateStorageAreIndependent' \
@@ -223,14 +266,20 @@ adb shell am instrument -w -r \
 
 assert_single_test_evidence ci-artifacts/evidence/storage-isolation-write-instrumentation.txt
 
+echo "DEVICE_REBOOT_BEGIN $(date -u +%Y-%m-%dT%H:%M:%SZ)" | tee ci-artifacts/evidence/device-reboot.txt
+adb reboot
+adb wait-for-device
+until [ "$(adb shell getprop sys.boot_completed 2>/dev/null | tr -d '\r')" = "1" ]; do sleep 2; done
+echo "DEVICE_REBOOT_BOOT_COMPLETED $(date -u +%Y-%m-%dT%H:%M:%SZ)" | tee -a ci-artifacts/evidence/device-reboot.txt
+
 adb shell am force-stop com.cloneapp.testapp || true
 
 adb shell am instrument -w -r \
   -e class 'com.cloneapp.testapp.StorageIsolationRuntimeTest#stateSurvivesRestartAndDeletingAliceLeavesBobIntact' \
   com.cloneapp.testapp.test/androidx.test.runner.AndroidJUnitRunner \
-  | tee ci-artifacts/evidence/storage-isolation-restart-delete-instrumentation.txt
+  | tee ci-artifacts/evidence/storage-isolation-reboot-delete-instrumentation.txt
 
-assert_single_test_evidence ci-artifacts/evidence/storage-isolation-restart-delete-instrumentation.txt
+assert_single_test_evidence ci-artifacts/evidence/storage-isolation-reboot-delete-instrumentation.txt
 
 adb shell am force-stop com.cloneapp.testapp || true
 adb shell am instrument -w -r \
@@ -269,4 +318,4 @@ adb shell pm path com.cloneapp.testapp > ci-artifacts/evidence/testapp-package-p
 grep -q "package:" ci-artifacts/evidence/cloneapp-package-path.txt
 grep -q "package:" ci-artifacts/evidence/testapp-package-path.txt
 
-echo "CloneApp emulator smoke + import + metadata + virtual registry + stub process + controlled guest activity launch + private storage isolation + controlled provider isolation + provider authority routing + notification translation acceptance PASS" | tee ci-artifacts/evidence/result.txt
+echo "ISSUE_9_RUNTIME_RESULT=PASS" | tee ci-artifacts/evidence/result.txt
