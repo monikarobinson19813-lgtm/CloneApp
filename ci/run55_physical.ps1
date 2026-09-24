@@ -80,19 +80,24 @@ function Wait-ForCredentialUnlock {
     do {
         $savedErrorActionPreference = $ErrorActionPreference
         $ErrorActionPreference = "Continue"
-        $unlockOutput = & $AdbPath shell cmd user is-user-unlocked 0 2>&1
+        $userDump = & $AdbPath shell dumpsys user 2>&1
         $status = $LASTEXITCODE
         $ErrorActionPreference = $savedErrorActionPreference
         if ($status -ne 0) {
-            throw "Unable to query Android credential-unlock state (adb status $status): $($unlockOutput -join ' ')"
+            throw "Unable to query Android user state via dumpsys user (adb status $status): $($userDump -join ' ')"
         }
-        $unlocked = (($unlockOutput -join "`n").Trim().ToLowerInvariant() -eq "true")
+
+        $userText = ($userDump -join "`n")
+        $unlocked = ($userText -match "(?m)^\s*Started users state:\s*\[[^\r\n\]]*\b0=RUNNING_UNLOCKED\b[^\r\n\]]*\]\s*$")
         if ($unlocked) {
-            Write-Master "USER_UNLOCK_GUARD_ACCEPTED user=0 unlocked=true"
+            $userDump | Set-Content -Encoding utf8 (Join-Path $Evidence "user-unlock-state.txt")
+            Write-Master "USER_UNLOCK_GUARD_ACCEPTED user=0 state=RUNNING_UNLOCKED source=dumpsys-user"
             return
         }
+
         if ((Get-Date) -gt $deadline) {
-            throw "Android user 0 remained credential-locked for 5 minutes after boot; refusing to start post-reboot instrumentation"
+            $userDump | Set-Content -Encoding utf8 (Join-Path $Evidence "user-unlock-state-timeout.txt")
+            throw "Android user 0 did not reach RUNNING_UNLOCKED within 5 minutes after boot; refusing to start post-reboot instrumentation"
         }
         Start-Sleep -Seconds 1
     } while ($true)
