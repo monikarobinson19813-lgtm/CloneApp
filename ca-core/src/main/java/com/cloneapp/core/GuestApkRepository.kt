@@ -3,6 +3,8 @@ package com.cloneapp.core
 import android.content.Context
 import android.net.Uri
 import android.provider.OpenableColumns
+import android.system.Os
+import android.system.OsConstants
 import org.json.JSONArray
 import org.json.JSONObject
 import java.io.File
@@ -97,6 +99,7 @@ class GuestApkRepository(private val context: Context) {
                 temp.copyTo(storedFile, overwrite = false)
                 temp.delete()
             }
+            syncFileAndParent(storedFile)
 
             val metadata = packageParser.parse(storedFile)
                 .getOrElse { error ->
@@ -139,7 +142,25 @@ class GuestApkRepository(private val context: Context) {
         items.distinctBy { it.sha256 }.forEach { artifact ->
             array.put(artifact.toJson())
         }
-        prefs.edit().putString(KEY_ARTIFACTS, array.toString()).apply()
+        prefs.edit().putString(KEY_ARTIFACTS, array.toString()).commit()
+    }
+
+    private fun syncFileAndParent(file: File) {
+        FileOutputStream(file, true).use { output ->
+            output.fd.sync()
+        }
+
+        val parent = file.parentFile ?: return
+        val parentFd = Os.open(
+            parent.absolutePath,
+            OsConstants.O_RDONLY,
+            0,
+        )
+        try {
+            Os.fsync(parentFd)
+        } finally {
+            Os.close(parentFd)
+        }
     }
 
     private fun GuestArtifact.toJson(): JSONObject = JSONObject().apply {

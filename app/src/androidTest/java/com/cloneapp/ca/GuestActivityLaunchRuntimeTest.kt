@@ -165,12 +165,16 @@ class GuestActivityLaunchRuntimeTest {
         var activityState = ""
         while (SystemClock.uptimeMillis() < deadline) {
             activityState = device.executeShellCommand(
-                "dumpsys activity activities | grep -E 'topResumedActivity|ResumedActivity|mFocusedApp'"
+                "dumpsys activity activities | grep -E 'topResumedActivity|ResumedActivity|Resumed:|mFocusedApp'"
             )
             if (
                 activityState.lineSequence().any { line ->
-                    line.contains("topResumedActivity=") &&
-                        line.contains(" $packageName/") 
+                    val isForegroundIndicator =
+                        line.contains("topResumedActivity=") ||
+                            line.contains("ResumedActivity:") ||
+                            line.contains("Resumed:") ||
+                            line.contains("mFocusedApp=")
+                    isForegroundIndicator && line.contains(" $packageName/")
                 }
             ) {
                 return
